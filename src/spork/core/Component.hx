@@ -1,6 +1,6 @@
 package spork.core;
 
-@:autoBuild(Macro.buildComponent())
+@:autoBuild(spork.core.Macro.buildComponent())
 interface Component {
 
 }
