@@ -13,8 +13,9 @@ class Move implements UpdateComponent{
 	private var vel: Point;
 	private var pos: Point;
 
-	public function update(time: Float){
+	public function update(time: Float): Float{
 		pos.add(Point.scale(vel, time));
+		return time;
 	}
 
 }

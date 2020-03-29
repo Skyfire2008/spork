@@ -1,13 +1,13 @@
 package spork.example;
 
-import spork.core.ComponentPool;
-
-import spork.example.components.UpdateComponent;
+import spork.example.properties.*;
 
 class Main {
 	public static function main() {
+		var hp = new Health(100);
+		var vel = new Velocity(11, 22);
 
-		var updPool = new ComponentPool<UpdateComponent>();
+		var holder: spork.core.PropertyHolder;
 
 		trace("Hello world!");
 	}
