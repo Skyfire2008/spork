@@ -1,5 +1,4 @@
 package spork.core;
 
-class Entity{
-
-}
+@:autoBuild(spork.core.Macro.buildEntity())
+class Entity {}

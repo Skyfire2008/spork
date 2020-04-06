@@ -20,29 +20,40 @@ class Macro {
 		var fields = Context.getBuildFields();
 
 		// get the class paths for properties from metadata
-
-		trace(Context.getLocalClass().get().meta.get());
 		var propsClassPaths = Context.getLocalClass().get().meta.extract("propertiesClassPath");
 		if (propsClassPaths.length == 0) {
 			Context.error("Property holder must have properties class paths (@propertiesClassPath)", Context.currentPos());
 		} else {
 			var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
 			for (path in propsClassPaths) {
-				propTypes = propTypes.concat(getSubClasses(propClass, getTypes(ExprTools.getValue(path.params[0]))));
+				propTypes = propTypes.concat(getSubClasses(propClass, getTypes(ExprTools.getValue(path.params[0])), true));
 			}
 		}
-		// getSubClasses(TypeTools.getClass(Context.getType("spork.core.Component")), getTypes("spork"));
 
 		// add shared property fields
-		var counter = 0;
 		for (type in propTypes) {
+			// get field name
+			var name: String = "";
+			switch (type) {
+				case TInst(t, _):
+					var clazz = t.get();
+					var meta = clazz.meta.extract("name");
+					// if @name($fieldName) metadata defined, use it
+					if (meta.length > 0 && meta[0].params.length > 0) {
+						name = ExprTools.getValue(meta[0].params[0]);
+					} else {
+						// otherwise, generate the name from class package and name
+						name = makeVarName(clazz.pack.concat([clazz.name]));
+					}
+				default:
+			}
+
 			fields.push({
-				name: 'var$counter',
+				name: name,
 				access: [APublic],
 				pos: Context.currentPos(),
 				kind: FVar(TypeTools.toComplexType(type), null)
 			});
-			counter++;
 		}
 
 		return fields;
@@ -50,6 +61,24 @@ class Macro {
 
 	public static macro function buildComponent(): Array<Field> {
 		var fields = Context.getBuildFields();
+
+		return fields;
+	}
+
+	public static macro function buildEntity(): Array<Field> {
+		var fields = Context.getBuildFields();
+		var compoTypes: Array<Type> = [];
+
+		// get all interfaces extending Component
+		var composClassPath = Context.getLocalClass().get().meta.extract("componentsClassPath");
+		if (composClassPath.length == 0) {
+			Context.error("No components class path metadata(@componentsClassPath) provided for entity", Context.currentPos());
+		} else {
+			var compoClass = TypeTools.getClass(Context.getType("spork.core.Component"));
+			for (path in composClassPath) {
+				compoTypes = compoTypes.concat(getSubClasses(compoClass, getTypes(ExprTools.getValue(path.params[0])), true));
+			}
+		}
 
 		return fields;
 	}
@@ -80,16 +109,17 @@ class Macro {
 	 * Check if given class type etends or implements another one
 	 * @param clazz class type to check
 	 * @param superClass super class
+	 * @param recursive check recursively
 	 * @return true, if it's a subclass, false otherwise
 	 */
-	private static function isSubClass(clazz: ClassType, superClass: ClassType): Bool {
+	private static function isSubClass(clazz: ClassType, superClass: ClassType, recursive: Bool): Bool {
 		// check the superclass first
 		if (clazz.superClass != null) {
 			var actualSuperClass = clazz.superClass.t.get();
 			if (actualSuperClass.name == superClass.name && actualSuperClass.pack.join(".") == superClass.pack.join(".")) {
 				return true;
 			}
-			if (isSubClass(actualSuperClass, superClass)) {
+			if (recursive && isSubClass(actualSuperClass, superClass, recursive)) {
 				return true;
 			}
 		}
@@ -101,7 +131,7 @@ class Macro {
 				if (inter.name == superClass.name && inter.pack.join(".") == superClass.pack.join(".")) {
 					return true;
 				}
-				if (isSubClass(inter, superClass)) {
+				if (recursive && isSubClass(inter, superClass, recursive)) {
 					return true;
 				}
 			}
@@ -116,14 +146,14 @@ class Macro {
 	 * @param types array of types to check
 	 * @return Array<Type>
 	 */
-	private static function getSubClasses(superClass: ClassType, types: Array<Type>): Array<Type> {
+	private static function getSubClasses(superClass: ClassType, types: Array<Type>, recursive: Bool): Array<Type> {
 		var result: Array<Type> = [];
 
 		for (type in types) {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
-					if (isSubClass(clazz, superClass)) {
+					if (isSubClass(clazz, superClass, recursive)) {
 						result.push(type);
 					}
 				default:
