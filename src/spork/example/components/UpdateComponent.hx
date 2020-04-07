@@ -4,7 +4,9 @@ import spork.core.Component;
 import spork.core.Entity;
 import spork.example.geom.Point;
 
-interface UpdateComponent extends Component {
+@component
+interface UpdateComponent {
+	@callback
 	function update(time: Float): Float;
 }
 

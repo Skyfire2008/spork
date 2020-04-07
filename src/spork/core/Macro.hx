@@ -69,14 +69,40 @@ class Macro {
 		var fields = Context.getBuildFields();
 		var compoTypes: Array<Type> = [];
 
-		// get all interfaces extending Component
 		var composClassPath = Context.getLocalClass().get().meta.extract("componentsClassPath");
 		if (composClassPath.length == 0) {
 			Context.error("No components class path metadata(@componentsClassPath) provided for entity", Context.currentPos());
-		} else {
-			var compoClass = TypeTools.getClass(Context.getType("spork.core.Component"));
-			for (path in composClassPath) {
-				compoTypes = compoTypes.concat(getSubClasses(compoClass, getTypes(ExprTools.getValue(path.params[0])), true));
+		}
+
+		for (path in composClassPath) {
+			compoTypes = compoTypes.concat(getTypes(ExprTools.getValue(path.params[0])));
+		}
+		for (type in compoTypes) {
+			switch (type) {
+				case TInst(t, _):
+					var clazz = t.get();
+
+					if (clazz.isInterface && clazz.meta.has("component")) {
+						var arrayName = "";
+						var params = clazz.meta.extract("component")[0].params;
+
+						if (params.length > 0) {
+							arrayName = ExprTools.getValue(params[0]);
+						} else {
+							arrayName = (clazz.name.charAt(0)).toLowerCase() + clazz.name.substring(1) + "s";
+						}
+
+						var field: Field = {
+							name: arrayName,
+							access: [APublic],
+							pos: Context.currentPos(),
+							kind: FieldType.FVar(TPath({name: "Array", pack: [], params: [TPType(TypeTools.toComplexType(type))]}), null)
+						};
+						trace(field);
+
+						fields.push(field);
+					}
+				default:
 			}
 		}
 
