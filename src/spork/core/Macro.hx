@@ -1,13 +1,12 @@
 package spork.core;
 
-import haxe.ds.StringMap;
+import haxe.macro.Printer;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.Context;
 import haxe.macro.TypeTools;
 import haxe.macro.ExprTools;
 
-import sys.io.File;
 import sys.FileSystem;
 
 import haxe.io.Path;
@@ -82,31 +81,86 @@ class Macro {
 				case TInst(t, _):
 					var clazz = t.get();
 
+					// get all callback components
 					if (clazz.isInterface && clazz.meta.has("component")) {
 						var arrayName = "";
 						var params = clazz.meta.extract("component")[0].params;
 
+						// get name for component array
 						if (params.length > 0) {
 							arrayName = ExprTools.getValue(params[0]);
 						} else {
 							arrayName = (clazz.name.charAt(0)).toLowerCase() + clazz.name.substring(1) + "s";
 						}
 
+						// add component array field
 						var field: Field = {
 							name: arrayName,
 							access: [APublic],
 							pos: Context.currentPos(),
 							kind: FieldType.FVar(TPath({name: "Array", pack: [], params: [TPType(TypeTools.toComplexType(type))]}), null)
 						};
-						trace(field);
 
 						fields.push(field);
+
+						// add callback method
+						for (classField in clazz.fields.get()) {
+							if (classField.meta.has("callback")) {
+								fields.push(makeCallback(classField, arrayName));
+								break;
+							}
+						}
 					}
 				default:
 			}
 		}
 
 		return fields;
+	}
+
+	private static function makeCallback(callbackField: ClassField, arrayName: String): Field {
+		var methodName = callbackField.name;
+		var argDefs;
+		var retType: Type;
+
+		// extract the return type and call arguments from class field
+		switch (callbackField.type) {
+			case TFun(args, ret):
+				argDefs = args;
+				retType = ret;
+			default:
+		}
+
+		// create array of expression for callback call arguments and function arguments for field
+		var callArgs: Array<Expr> = [];
+		var fieldArgs: Array<FunctionArg> = [];
+		for (argDef in argDefs) {
+			callArgs.push(macro $i{argDef.name});
+			fieldArgs.push({
+				name: argDef.name,
+				type: TypeTools.toComplexType(argDef.t),
+				opt: argDef.opt,
+			});
+		}
+
+		// create function expression using reification
+		var callback = macro for (c in $i{arrayName}) {
+			c.$methodName($a{callArgs});
+		};
+
+		// define the field
+		var field: Field = {
+			name: methodName,
+			access: [APublic],
+			pos: Context.currentPos(),
+			kind: FFun({
+				ret: TypeTools.toComplexType(retType),
+				expr: callback,
+				args: fieldArgs
+			})
+		}
+
+		return field;
 	}
 
 	/**

@@ -7,16 +7,15 @@ import spork.example.geom.Point;
 @component
 interface UpdateComponent {
 	@callback
-	function update(time: Float): Float;
+	function update(time: Float): Void;
 }
 
 class Move implements UpdateComponent {
 	private var vel: Point;
 	private var pos: Point;
 
-	public function update(time: Float): Float {
+	public function update(time: Float): Void {
 		pos.add(Point.scale(vel, time));
-		return time;
 	}
 
 	public function attach(owner: Entity) {}
