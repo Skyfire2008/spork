@@ -7,6 +7,6 @@ import spork.core.PropertyHolder;
  */
 @:autoBuild(spork.core.Macro.buildProperty())
 interface SharedProperty {
-	// function clone(): SharedProperty;
-	// function attach(owner: PropertyHolder): Void;
+	function clone(): SharedProperty;
+	function attach(owner: PropertyHolder): Void;
 }

@@ -21,6 +21,7 @@ class Macro {
 		propClassPaths = paths;
 	}
 
+	// TODO: check if shared property is not an interface
 	public static macro function buildPropHolder(): Array<Field> {
 		var propTypes: Array<Type> = [];
 		var fields = Context.getBuildFields();
@@ -63,16 +64,81 @@ class Macro {
 		return fields;
 	}
 
+	// TODO: skip interfaces
 	public static macro function buildProperty(): Array<Field> {
 		var fields = Context.getBuildFields();
+		var className = Context.getLocalClass().get().name;
 
-		var fieldNameMap: StringMap<Bool> = new StringMap<Bool>();
+		// put the property fields into map
+		var fieldNameMap: StringMap<Field> = new StringMap<Field>();
 		for (field in fields) {
-			fieldNameMap.set(field.name, true);
+			fieldNameMap.set(field.name, field);
 		}
 
-		var clazz = Context.getLocalClass().get();
-		if (!fieldNameMap.exists("clone")) {}
+		// create clone method
+		if (!fieldNameMap.exists("clone")) {
+			var constructor = fieldNameMap.get("new");
+
+			if (constructor == null) {
+				Context.error('Shared property $className has no constructor, cannot create method "clone"', Context.currentPos());
+			}
+
+			// get call arguments of the constructor
+			var callArgs: Array<Expr> = [];
+			switch (constructor.kind) {
+				case FFun(f):
+					for (arg in f.args) {
+						callArgs.push(macro $i{arg.name});
+					}
+				default:
+			}
+
+			// create clone function expression
+			var classPath: TypePath = {
+				name: className,
+				pack: []
+			};
+			var funcExpr = macro return new $classPath($a{callArgs});
+
+			// create clone method field
+			fields.push({
+				name: "clone",
+				access: [APublic],
+				pos: Context.currentPos(),
+				kind: FFun({
+					args: [],
+					ret: TPath(classPath),
+					expr: funcExpr
+				})
+			});
+		}
+
+		// create attach method
+		if (!fieldNameMap.exists("attach")) {
+			// get name of the field containing this property in property holder
+			var meta = Context.getLocalClass().get().meta.extract("name");
+			var fieldName: String;
+
+			if (meta.length > 0 && meta[0].params.length > 0) {
+				fieldName = ExprTools.getValue(meta[0].params[0]);
+			} else {
+				var clazz = Context.getLocalClass().get();
+				fieldName = makeVarName(clazz.pack.concat([clazz.name]));
+			}
+
+			var funcExpr = macro(owner.$fieldName = this);
+
+			fields.push({
+				name: "attach",
+				access: [APublic],
+				pos: Context.currentPos(),
+				kind: FFun({
+					args: [{name: "owner", type: macro:spork.core.PropertyHolder}],
+					ret: null,
+					expr: funcExpr
+				})
+			});
+		}
 
 		return fields;
 	}
@@ -125,7 +191,7 @@ class Macro {
 						// add callback method
 						for (classField in clazz.fields.get()) {
 							if (classField.meta.has("callback")) {
-								fields.push(makeCallback(classField, arrayName));
+								fields.push(makeEntityCallback(classField, arrayName));
 								break;
 							}
 						}
@@ -137,7 +203,7 @@ class Macro {
 		return fields;
 	}
 
-	private static function makeCallback(callbackField: ClassField, arrayName: String): Field {
+	private static function makeEntityCallback(callbackField: ClassField, arrayName: String): Field {
 		var methodName = callbackField.name;
 		var argDefs;
 		var retType: Type;
