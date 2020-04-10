@@ -1,4 +1,6 @@
 package spork.core;
 
-@:autoBuild(spork.core.Macro.buildPropHolder())
-interface PropertyHolder {}
+@:build(spork.core.Macro.buildPropHolder())
+class PropertyHolder {
+	public function new() {}
+}

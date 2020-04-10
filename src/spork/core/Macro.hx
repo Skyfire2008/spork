@@ -6,6 +6,7 @@ import haxe.macro.Type;
 import haxe.macro.Context;
 import haxe.macro.TypeTools;
 import haxe.macro.ExprTools;
+import haxe.ds.StringMap;
 
 import sys.FileSystem;
 
@@ -14,19 +15,21 @@ import haxe.io.Path;
 using Lambda;
 
 class Macro {
+	private static var propClassPaths: Array<String> = [];
+
+	public static macro function setPropClassPath(paths: Array<String>): Void {
+		propClassPaths = paths;
+	}
+
 	public static macro function buildPropHolder(): Array<Field> {
 		var propTypes: Array<Type> = [];
 		var fields = Context.getBuildFields();
 
 		// get the class paths for properties from metadata
-		var propsClassPaths = Context.getLocalClass().get().meta.extract("propertiesClassPath");
-		if (propsClassPaths.length == 0) {
-			Context.error("Property holder must have properties class paths (@propertiesClassPath)", Context.currentPos());
-		} else {
-			var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
-			for (path in propsClassPaths) {
-				propTypes = propTypes.concat(getSubClasses(propClass, getTypes(ExprTools.getValue(path.params[0])), true));
-			}
+
+		var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
+		for (path in propClassPaths) {
+			propTypes = propTypes.concat(getSubClasses(propClass, getTypes(path), true));
 		}
 
 		// add shared property fields
@@ -54,6 +57,22 @@ class Macro {
 				kind: FVar(TypeTools.toComplexType(type), null)
 			});
 		}
+
+		// add
+
+		return fields;
+	}
+
+	public static macro function buildProperty(): Array<Field> {
+		var fields = Context.getBuildFields();
+
+		var fieldNameMap: StringMap<Bool> = new StringMap<Bool>();
+		for (field in fields) {
+			fieldNameMap.set(field.name, true);
+		}
+
+		var clazz = Context.getLocalClass().get();
+		if (!fieldNameMap.exists("clone")) {}
 
 		return fields;
 	}
@@ -135,7 +154,7 @@ class Macro {
 		var callArgs: Array<Expr> = [];
 		var fieldArgs: Array<FunctionArg> = [];
 		for (argDef in argDefs) {
-			callArgs.push(macro $i{argDef.name}); // this reification generates an indent from string name
+			callArgs.push(macro $i{argDef.name});
 			fieldArgs.push({
 				name: argDef.name,
 				type: TypeTools.toComplexType(argDef.t),

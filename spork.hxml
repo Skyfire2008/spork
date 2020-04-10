@@ -1,3 +1,4 @@
 -cp src
 -neko bin/example.n
 -main spork.example.Main
+--macro spork.core.Macro.setPropClassPath(["spork.example"])
