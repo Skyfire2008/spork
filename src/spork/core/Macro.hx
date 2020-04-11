@@ -25,8 +25,58 @@ class Macro {
 	public static macro function buildJsonLoader(): Array<Field> {
 		var propTypes = getPropTypes();
 		var fields = Context.getBuildFields();
+		var mapDecl: Array<Expr> = [];
 
-		for (type in propTypes) {}
+		// for every property type...
+		for (type in propTypes) {
+			switch (type) {
+				case TInst(t, _):
+					var clazz = t.get();
+
+					// skip interfaces
+					if (clazz.isInterface) {
+						continue;
+					}
+
+					// get array of call arguments for property constructor
+					var callArgs: Array<Expr> = [];
+					var constructor = clazz.constructor.get();
+					switch (constructor.type) {
+						case TFun(args, _):
+							trace(args);
+							for (arg in args) {
+								var name = arg.name;
+								callArgs.push(macro json.$name);
+							}
+						case TLazy(f): // in case the typing is not completed
+							switch (f()) {
+								case TFun(args, _):
+									for (arg in args) {
+										var name = arg.name;
+										callArgs.push(macro json.$name);
+									}
+								default:
+							}
+						default:
+					}
+
+					// create part of map declaration
+					var typePath: TypePath = {name: clazz.name, pack: clazz.pack};
+					mapDecl.push(macro $v{getHolderPropFieldName(clazz)} => (json: Dynamic) -> {
+						return new $typePath($a{callArgs});
+					});
+
+				default:
+			}
+		}
+
+		// add propFactories map
+		fields.push({
+			name: "propFactories",
+			access: [APublic, AStatic],
+			pos: Context.currentPos(),
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, {pos: Context.currentPos(), expr: EArrayDecl(mapDecl)})
+		});
 
 		return fields;
 	}
@@ -78,7 +128,6 @@ class Macro {
 		// create clone method
 		if (!fieldNameMap.exists("clone")) {
 			var constructor = fieldNameMap.get("new");
-
 			if (constructor == null) {
 				Context.error('Shared property $className has no constructor, cannot create method "clone"', Context.currentPos());
 			}
