@@ -16,22 +16,24 @@ using Lambda;
 
 class Macro {
 	private static var propClassPaths: Array<String> = [];
+	private static var propTypes: Array<Type> = null;
 
 	public static macro function setPropClassPath(paths: Array<String>): Void {
 		propClassPaths = paths;
 	}
 
-	// TODO: check if shared property is not an interface
-	public static macro function buildPropHolder(): Array<Field> {
-		var propTypes: Array<Type> = [];
+	public static macro function buildJsonLoader(): Array<Field> {
+		var propTypes = getPropTypes();
 		var fields = Context.getBuildFields();
 
-		// get the class paths for properties from metadata
+		for (type in propTypes) {}
 
-		var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
-		for (path in propClassPaths) {
-			propTypes = propTypes.concat(getSubClasses(propClass, getTypes(path), true));
-		}
+		return fields;
+	}
+
+	public static macro function buildPropHolder(): Array<Field> {
+		var propTypes: Array<Type> = getPropTypes();
+		var fields = Context.getBuildFields();
 
 		// add shared property fields
 		for (type in propTypes) {
@@ -40,14 +42,12 @@ class Macro {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
-					var meta = clazz.meta.extract("name");
-					// if @name($fieldName) metadata defined, use it
-					if (meta.length > 0 && meta[0].params.length > 0) {
-						name = ExprTools.getValue(meta[0].params[0]);
-					} else {
-						// otherwise, generate the name from class package and name
-						name = makeVarName(clazz.pack.concat([clazz.name]));
+
+					if (clazz.isInterface) {
+						continue;
 					}
+
+					name = getHolderPropFieldName(clazz);
 				default:
 			}
 
@@ -116,15 +116,8 @@ class Macro {
 		// create attach method
 		if (!fieldNameMap.exists("attach")) {
 			// get name of the field containing this property in property holder
-			var meta = Context.getLocalClass().get().meta.extract("name");
-			var fieldName: String;
-
-			if (meta.length > 0 && meta[0].params.length > 0) {
-				fieldName = ExprTools.getValue(meta[0].params[0]);
-			} else {
-				var clazz = Context.getLocalClass().get();
-				fieldName = makeVarName(clazz.pack.concat([clazz.name]));
-			}
+			var clazz = Context.getLocalClass().get();
+			var fieldName = getHolderPropFieldName(clazz);
 
 			var funcExpr = macro(owner.$fieldName = this);
 
@@ -203,6 +196,30 @@ class Macro {
 		return fields;
 	}
 
+	#if macro
+	/**
+	 * Retrieves the array of types implmeneting SharedProperty
+	 */
+	private static inline function getPropTypes(): Array<Type> {
+		if (propTypes == null) {
+			// get the class paths for properties from metadata
+			var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
+			propTypes = [];
+
+			for (path in propClassPaths) {
+				propTypes = propTypes.concat(getSubClasses(propClass, getTypes(path), true));
+			}
+		}
+
+		return propTypes;
+	}
+
+	/**
+	 * Creates a callback method for entity, calling callbacks of all appropriate
+	 * @param callbackField
+	 * @param arrayName
+	 * @return Field
+	 */
 	private static function makeEntityCallback(callbackField: ClassField, arrayName: String): Field {
 		var methodName = callbackField.name;
 		var argDefs;
@@ -246,6 +263,19 @@ class Macro {
 		}
 
 		return field;
+	}
+
+	private static inline function getHolderPropFieldName(clazz: ClassType): String {
+		var meta = clazz.meta.extract("name");
+		var fieldName: String;
+
+		if (meta.length > 0 && meta[0].params.length > 0) {
+			fieldName = ExprTools.getValue(meta[0].params[0]);
+		} else {
+			fieldName = makeVarName(clazz.pack.concat([clazz.name]));
+		}
+
+		return fieldName;
 	}
 
 	/**
@@ -370,4 +400,5 @@ class Macro {
 		trace('No path contains package $classPath');
 		return null;
 	}
+	#end
 }
