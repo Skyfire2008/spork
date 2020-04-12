@@ -1,4 +1,6 @@
 package spork.core;
 
-@:autoBuild(spork.core.Macro.buildEntity())
-interface Entity {}
+@:build(spork.core.Macro.buildEntity())
+class Entity {
+	public function new() {}
+}

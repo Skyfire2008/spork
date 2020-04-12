@@ -2,7 +2,7 @@ package spork.example;
 
 import spork.core.PropertyHolder;
 import spork.core.JsonLoader;
-import spork.example.Entity;
+import spork.core.Entity;
 import spork.example.properties.*;
 
 class Main {

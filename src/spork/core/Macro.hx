@@ -16,7 +16,12 @@ using Lambda;
 
 class Macro {
 	private static var propClassPaths: Array<String> = [];
+	private static var componentsClassPaths: Array<String> = [];
 	private static var propTypes: Array<Type> = null;
+
+	public static macro function setComponentsClassPath(paths: Array<String>): Void {
+		componentsClassPaths = paths;
+	}
 
 	public static macro function setPropClassPath(paths: Array<String>): Void {
 		propClassPaths = paths;
@@ -195,13 +200,8 @@ class Macro {
 		var fields = Context.getBuildFields();
 		var compoTypes: Array<Type> = [];
 
-		var composClassPath = Context.getLocalClass().get().meta.extract("componentsClassPath");
-		if (composClassPath.length == 0) {
-			Context.error("No components class path metadata(@componentsClassPath) provided for entity", Context.currentPos());
-		}
-
-		for (path in composClassPath) {
-			compoTypes = compoTypes.concat(getTypes(ExprTools.getValue(path.params[0])));
+		for (path in componentsClassPaths) {
+			compoTypes = compoTypes.concat(getTypes(path));
 		}
 		for (type in compoTypes) {
 			switch (type) {
