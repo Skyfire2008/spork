@@ -1,7 +1,7 @@
 package spork.example.components;
 
-@component
-interface DamageComponent {
+@name
+interface DamageComponent extends spork.core.Component {
 	@callback
 	function onDamage(dmg: Float, source: spork.core.Entity): Void;
 }

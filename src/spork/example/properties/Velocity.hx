@@ -1,14 +1,11 @@
 package spork.example.properties;
 
 import spork.core.SharedProperty;
+import spork.example.geom.Point;
 
 @name()
-class Velocity implements SharedProperty {
-	public var x: Float;
-	public var y: Float;
-
+class Velocity implements SharedProperty extends Point {
 	public function new(x: Float = 0, y: Float = 0) {
-		this.x = x;
-		this.y = y;
+		super(x, y);
 	}
 }

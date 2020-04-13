@@ -18,6 +18,7 @@ class Macro {
 	private static var propClassPaths: Array<String> = [];
 	private static var componentsClassPaths: Array<String> = [];
 	private static var propTypes: Array<Type> = null;
+	private static var componentTypes: Array<Type> = null;
 
 	public static macro function setComponentsClassPath(paths: Array<String>): Void {
 		componentsClassPaths = paths;
@@ -29,6 +30,7 @@ class Macro {
 
 	public static macro function buildJsonLoader(): Array<Field> {
 		var propTypes = getPropTypes();
+		var componentTypes = getComponentTypes();
 		var fields = Context.getBuildFields();
 		var mapDecl: Array<Expr> = [];
 
@@ -83,6 +85,9 @@ class Macro {
 			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, {pos: Context.currentPos(), expr: EArrayDecl(mapDecl)})
 		});
 
+		// for every component type...
+		for (type in componentTypes) {}
+
 		return fields;
 	}
 
@@ -122,7 +127,7 @@ class Macro {
 	// TODO: skip interfaces
 	public static macro function buildProperty(): Array<Field> {
 		var fields = Context.getBuildFields();
-		var className = Context.getLocalClass().get().name;
+		var clazz = Context.getLocalClass().get();
 
 		// put the property fields into map
 		var fieldNameMap: StringMap<Field> = new StringMap<Field>();
@@ -132,39 +137,7 @@ class Macro {
 
 		// create clone method
 		if (!fieldNameMap.exists("clone")) {
-			var constructor = fieldNameMap.get("new");
-			if (constructor == null) {
-				Context.error('Shared property $className has no constructor, cannot create method "clone"', Context.currentPos());
-			}
-
-			// get call arguments of the constructor
-			var callArgs: Array<Expr> = [];
-			switch (constructor.kind) {
-				case FFun(f):
-					for (arg in f.args) {
-						callArgs.push(macro $i{arg.name});
-					}
-				default:
-			}
-
-			// create clone function expression
-			var classPath: TypePath = {
-				name: className,
-				pack: []
-			};
-			var funcExpr = macro return new $classPath($a{callArgs});
-
-			// create clone method field
-			fields.push({
-				name: "clone",
-				access: [APublic],
-				pos: Context.currentPos(),
-				kind: FFun({
-					args: [],
-					ret: TPath(classPath),
-					expr: funcExpr
-				})
-			});
+			fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
 		}
 
 		// create attach method
@@ -192,6 +165,35 @@ class Macro {
 
 	public static macro function buildComponent(): Array<Field> {
 		var fields = Context.getBuildFields();
+		var clazz = Context.getLocalClass().get();
+
+		// skip interfaces
+		if (!clazz.isInterface) {
+			// put all fields into a map
+			var fieldNameMap: StringMap<Field> = new StringMap<Field>();
+			for (field in fields) {
+				fieldNameMap.set(field.name, field);
+			}
+
+			// if "clone" method doesn't exist, create it
+			if (!fieldNameMap.exists("clone")) {
+				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
+			}
+
+			// if "assignProps" doesn't exist, create it
+			if (!fieldNameMap.exists("assignProps")) {
+				fields.push({
+					name: "assignProps",
+					access: [APublic],
+					pos: Context.currentPos(),
+					kind: FFun({
+						args: [{name: "holder", type: macro:spork.core.PropertyHolder}],
+						ret: null,
+						expr: null
+					})
+				});
+			}
+		}
 
 		return fields;
 	}
@@ -201,17 +203,17 @@ class Macro {
 		var compoTypes: Array<Type> = [];
 
 		for (path in componentsClassPaths) {
-			compoTypes = compoTypes.concat(getTypes(path));
+			compoTypes = getComponentTypes();
 		}
 		for (type in compoTypes) {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
 
-					// get all callback components
-					if (clazz.isInterface && clazz.meta.has("component")) {
+					// only process interfaces
+					if (clazz.isInterface) {
 						var arrayName = "";
-						var params = clazz.meta.extract("component")[0].params;
+						var params = clazz.meta.extract("name")[0].params;
 
 						// get name for component array
 						if (params.length > 0) {
@@ -246,12 +248,63 @@ class Macro {
 	}
 
 	#if macro
+	private static inline function makeCloneMethod(constructor: Field, clazz: ClassType): Field {
+		// check that constructor exists
+		if (constructor == null) {
+			Context.error('Shared property ${clazz.name} has no constructor, cannot create method "clone"', Context.currentPos());
+		}
+
+		// get call arguments of the constructor
+		var callArgs: Array<Expr> = [];
+		switch (constructor.kind) {
+			case FFun(f):
+				for (arg in f.args) {
+					callArgs.push(macro $i{arg.name});
+				}
+			default:
+		}
+
+		// create clone function expression
+		var classPath: TypePath = {
+			name: clazz.name,
+			pack: clazz.pack
+		};
+		var funcExpr = macro return new $classPath($a{callArgs});
+
+		// create clone method field
+		return {
+			name: "clone",
+			access: [APublic],
+			pos: Context.currentPos(),
+			kind: FFun({
+				args: [],
+				ret: TPath(classPath),
+				expr: funcExpr
+			})
+		};
+	}
+
 	/**
-	 * Retrieves the array of types implmeneting SharedProperty
+	 * Retrieves the array of types implementing Component
+	 */
+	private static inline function getComponentTypes(): Array<Type> {
+		if (componentTypes == null) {
+			var componentClass = TypeTools.getClass(Context.getType("spork.core.Component"));
+			componentTypes = [];
+
+			for (path in componentsClassPaths) {
+				componentTypes = componentTypes.concat(getSubClasses(componentClass, getTypes(path), true));
+			}
+		}
+
+		return componentTypes;
+	}
+
+	/**
+	 * Retrieves the array of types implementing SharedProperty
 	 */
 	private static inline function getPropTypes(): Array<Type> {
 		if (propTypes == null) {
-			// get the class paths for properties from metadata
 			var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
 			propTypes = [];
 

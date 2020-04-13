@@ -1,18 +1,10 @@
 package spork.core;
 
 @:autoBuild(spork.core.Macro.buildComponent())
-class Component {
-	private var owner: Entity;
+interface Component {
+	public function clone(): Component;
 
-	public function clone(): Component {
-		throw "not implemented";
-	}
+	public function assignProps(holder: PropertyHolder): Void;
 
-	public function assignProps(holder: PropertyHolder) {
-		throw "not implemented";
-	}
-
-	public function attach(owner: Entity): Void {
-		this.owner = owner;
-	}
+	public function attach(owner: Entity): Void;
 }
