@@ -14,11 +14,21 @@ import haxe.io.Path;
 
 using Lambda;
 
+enum NamingType {
+	Short;
+	Long;
+}
+
 class Macro {
 	private static var propClassPaths: Array<String> = [];
 	private static var componentsClassPaths: Array<String> = [];
 	private static var propTypes: Array<Type> = null;
 	private static var componentTypes: Array<Type> = null;
+	private static var namingType: NamingType = Short;
+
+	public static macro function setNamingType(type: NamingType): Void {
+		namingType = type;
+	}
 
 	public static macro function setComponentsClassPath(paths: Array<String>): Void {
 		componentsClassPaths = paths;
@@ -32,17 +42,17 @@ class Macro {
 		var propTypes = getPropTypes();
 		var componentTypes = getComponentTypes();
 		var fields = Context.getBuildFields();
-		var mapDecl: Array<Expr> = [];
+		var propMapDecl: Array<Expr> = [];
+		var componentMapDecl: Array<Expr> = [];
 
-		// for every property type...
-		for (type in propTypes) {
+		var makeMapping = (type: Type) -> {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
 
 					// skip interfaces
 					if (clazz.isInterface) {
-						continue;
+						return null;
 					}
 
 					// get array of call arguments for property constructor
@@ -68,12 +78,21 @@ class Macro {
 					}
 
 					// create part of map declaration
-					var typePath: TypePath = {name: clazz.name, pack: clazz.pack};
-					mapDecl.push(macro $v{getHolderPropFieldName(clazz)} => (json: Dynamic) -> {
+					var typePath = makeTypePath(clazz);
+					return macro $v{getFieldNameFromClass(clazz)} => (json: Dynamic) -> {
 						return new $typePath($a{callArgs});
-					});
+					};
 
 				default:
+			}
+			return null;
+		}
+
+		// for every property type...
+		for (type in propTypes) {
+			var current = makeMapping(type);
+			if (current != null) {
+				propMapDecl.push(current);
 			}
 		}
 
@@ -82,11 +101,24 @@ class Macro {
 			name: "propFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, {pos: Context.currentPos(), expr: EArrayDecl(mapDecl)})
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, {pos: Context.currentPos(), expr: EArrayDecl(propMapDecl)})
 		});
 
 		// for every component type...
-		for (type in componentTypes) {}
+		for (type in componentTypes) {
+			var current = makeMapping(type);
+			if (current != null) {
+				componentMapDecl.push(current);
+			}
+		}
+
+		// add componentFactories map
+		fields.push({
+			name: "componentFactories",
+			access: [APublic, AStatic],
+			pos: Context.currentPos(),
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.Component >, {pos: Context.currentPos(), expr: EArrayDecl(componentMapDecl)})
+		});
 
 		return fields;
 	}
@@ -107,7 +139,7 @@ class Macro {
 						continue;
 					}
 
-					name = getHolderPropFieldName(clazz);
+					name = getFieldNameFromClass(clazz);
 				default:
 			}
 
@@ -144,7 +176,7 @@ class Macro {
 		if (!fieldNameMap.exists("attach")) {
 			// get name of the field containing this property in property holder
 			var clazz = Context.getLocalClass().get();
-			var fieldName = getHolderPropFieldName(clazz);
+			var fieldName = getFieldNameFromClass(clazz);
 
 			var funcExpr = macro(owner.$fieldName = this);
 
@@ -265,10 +297,7 @@ class Macro {
 		}
 
 		// create clone function expression
-		var classPath: TypePath = {
-			name: clazz.name,
-			pack: clazz.pack
-		};
+		var classPath = makeTypePath(clazz);
 		var funcExpr = macro return new $classPath($a{callArgs});
 
 		// create clone method field
@@ -282,6 +311,17 @@ class Macro {
 				expr: funcExpr
 			})
 		};
+	}
+
+	private static inline function makeTypePath(clazz: ClassType): TypePath {
+		var result: TypePath = {name: clazz.name, pack: clazz.pack};
+		var module = clazz.module.substring(clazz.module.lastIndexOf(".") + 1);
+		if (clazz.name != module) { // for sub-types, typepath name is set to module name, and sub is set to actual type name
+			result.name = module;
+			result.sub = clazz.name;
+		}
+
+		return result;
 	}
 
 	/**
@@ -367,39 +407,44 @@ class Macro {
 		return field;
 	}
 
-	private static inline function getHolderPropFieldName(clazz: ClassType): String {
+	/**
+	 * Generats name for a field containg an instance of given class
+	 * @param clazz
+	 * @return String
+	 */
+	private static inline function getFieldNameFromClass(clazz: ClassType): String {
 		var meta = clazz.meta.extract("name");
 		var fieldName: String;
 
+		// first, try to get the name from metadata
 		if (meta.length > 0 && meta[0].params.length > 0) {
 			fieldName = ExprTools.getValue(meta[0].params[0]);
 		} else {
-			fieldName = makeVarName(clazz.pack.concat([clazz.name]));
+			// otherwise, get it from classpath
+			var pack: Array<String> = [];
+			if (namingType == Short) {
+				pack = [clazz.name];
+			} else {
+				pack = clazz.pack.concat([clazz.name]);
+			}
+
+			var nameBuf: StringBuf = new StringBuf();
+
+			// generate the name according to the format: package1.package2.Class -> package1Package2Class
+			for (i in 0...pack.length) {
+				var word = pack[i];
+				if (i == 0) {
+					nameBuf.add(word.substr(0, 1).toLowerCase());
+				} else {
+					nameBuf.add(word.substr(0, 1).toUpperCase());
+				}
+				nameBuf.addSub(word, 1);
+			}
+
+			fieldName = nameBuf.toString();
 		}
 
 		return fieldName;
-	}
-
-	/**
-	 * Gets a field name for property from package, according to the following format:
-	 * org.example.Module.Type -> orgExampleModuleType
-	 * @param pack package array
-	 * @return String
-	 */
-	private static inline function makeVarName(pack: Array<String>): String {
-		var nameBuf: StringBuf = new StringBuf();
-
-		for (i in 0...pack.length) {
-			var word = pack[i];
-			if (i == 0) {
-				nameBuf.add(word.substr(0, 1).toLowerCase());
-			} else {
-				nameBuf.add(word.substr(0, 1).toUpperCase());
-			}
-			nameBuf.addSub(word, 1);
-		}
-
-		return nameBuf.toString();
 	}
 
 	/**

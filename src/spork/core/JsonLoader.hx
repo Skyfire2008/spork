@@ -21,7 +21,15 @@ class JsonLoader {
 			props.push(factory(jsonProps.get(key)));
 		}
 
-		// TODO: load components here
+		// load components here
+		for (key in jsonComponents.keys()) {
+			var factory = JsonLoader.componentFactories.get(key);
+			if (factory == null) {
+				throw('Unrecognize component $key');
+			}
+
+			components.push(factory(jsonComponents.get(key)));
+		}
 
 		var func = () -> {
 			var result = new Entity();

@@ -23,7 +23,7 @@ class Move implements UpdateComponent {
 
 	public function assignProps(holder: PropertyHolder) {
 		this.pos = holder.position;
-		this.vel = holder.sporkExamplePropertiesVelocity;
+		this.vel = holder.velocity;
 	}
 
 	public function attach(owner: Entity) {

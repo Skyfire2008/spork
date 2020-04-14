@@ -10,6 +10,8 @@ class Main {
 		var hp = new Health(100);
 		var vel = new Velocity(11, 22);
 
+		var m = new spork.example.components.UpdateComponent.Move();
+
 		var holder: PropertyHolder = new PropertyHolder();
 		holder.health = hp;
 
