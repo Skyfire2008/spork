@@ -5,6 +5,11 @@ import haxe.ds.StringMap;
 
 @:build(spork.core.Macro.buildJsonLoader())
 class JsonLoader {
+	/**
+	 * Creates a fatory method for creating new entities from template
+	 * @param json template as Dynamic object, read from JSON file
+	 * @return entity creation function
+	 */
 	public static function makeLoader(json: Dynamic): () -> Entity {
 		var jsonProps: DynamicAccess<Dynamic> = json.properties;
 		var jsonComponents: DynamicAccess<Dynamic> = json.components;
@@ -32,13 +37,16 @@ class JsonLoader {
 		}
 
 		var func = () -> {
+			// init entity
 			var result = new Entity();
 
+			// attach clones of properties to holder
 			var holder = new PropertyHolder();
 			for (prop in props) {
 				prop.clone().attach(holder);
 			}
 
+			// clone components, give them properties and attach to entity
 			for (comp in components) {
 				var clone = comp.clone();
 				clone.assignProps(holder);
