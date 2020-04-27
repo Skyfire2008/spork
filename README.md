@@ -83,5 +83,11 @@ we would use the following template:
 }
 ```
 
+## Setup:
+Several intialization macros to setup spork are available:
+* `setComponentsClassPath(paths: Array<String>)` - set the paths, used to get the components.
+* `setPropClassPath(paths: Array<String>)` - same, but for shared properties.
+* `setNamingLong(value: Bool)` - sets the default naming method for fields of `Entity` and `PropertyHolder`.
+
 ## Example project:
-Coming soon.
+https://github.com/Skyfire2008/sporkExample

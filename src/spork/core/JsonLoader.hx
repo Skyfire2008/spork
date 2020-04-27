@@ -10,7 +10,7 @@ class JsonLoader {
 	 * @param json template as Dynamic object, read from JSON file
 	 * @return entity creation function
 	 */
-	public static function makeLoader(json: Dynamic): () -> Entity {
+	public static function makeLoader(json: Dynamic): (assignments: (holder: PropertyHolder) -> Void) -> Entity {
 		var jsonProps: DynamicAccess<Dynamic> = json.properties;
 		var jsonComponents: DynamicAccess<Dynamic> = json.components;
 		var props: Array<SharedProperty> = [];
@@ -36,7 +36,9 @@ class JsonLoader {
 			components.push(factory(jsonComponents.get(key)));
 		}
 
-		var func = () -> {
+		// create resulting factory function
+		// assignments is used to assign starting values(e.g. position, etc.) to properties
+		var func = (assignments: (holder: PropertyHolder) -> Void) -> {
 			// init entity
 			var result = new Entity();
 

@@ -14,20 +14,15 @@ import haxe.io.Path;
 
 using Lambda;
 
-enum NamingType {
-	Short;
-	Long;
-}
-
 class Macro {
 	private static var propClassPaths: Array<String> = [];
 	private static var componentsClassPaths: Array<String> = [];
 	private static var propTypes: Array<Type> = null;
 	private static var componentTypes: Array<Type> = null;
-	private static var namingType: NamingType = Short;
+	private static var isNamingLong: Bool = false;
 
-	public static macro function setNamingType(type: NamingType): Void {
-		namingType = type;
+	public static macro function setNamingLong(value: Bool): Void {
+		isNamingLong = value;
 	}
 
 	public static macro function setComponentsClassPath(paths: Array<String>): Void {
@@ -96,12 +91,21 @@ class Macro {
 			}
 		}
 
+		// choose init expression for propFactories:
+		var propFactoriesInitExpr: Expr = null;
+		if (propMapDecl.length > 0) {
+			propFactoriesInitExpr = {
+				expr: EArrayDecl(propMapDecl),
+				pos: Context.currentPos()
+			};
+		}
+
 		// add propFactories map
 		fields.push({
 			name: "propFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, {pos: Context.currentPos(), expr: EArrayDecl(propMapDecl)})
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, propFactoriesInitExpr)
 		});
 
 		// for every component type...
@@ -117,7 +121,10 @@ class Macro {
 			name: "componentFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.Component >, {pos: Context.currentPos(), expr: EArrayDecl(componentMapDecl)})
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.Component >, {
+				pos: Context.currentPos(),
+				expr: EArrayDecl(componentMapDecl)
+			})
 		});
 
 		return fields;
@@ -221,7 +228,7 @@ class Macro {
 					kind: FFun({
 						args: [{name: "holder", type: macro:spork.core.PropertyHolder}],
 						ret: null,
-						expr: null
+						expr: macro {}
 					})
 				});
 			}
@@ -245,7 +252,8 @@ class Macro {
 					// only process interfaces
 					if (clazz.isInterface) {
 						var arrayName = "";
-						var params = clazz.meta.extract("name")[0].params;
+						var entry = clazz.meta.extract("name");
+						var params = entry.length > 0 ? entry[0].params : [];
 
 						// get name for component array
 						if (params.length > 0) {
@@ -422,7 +430,7 @@ class Macro {
 		} else {
 			// otherwise, get it from classpath
 			var pack: Array<String> = [];
-			if (namingType == Short) {
+			if (!isNamingLong) {
 				pack = [clazz.name];
 			} else {
 				pack = clazz.pack.concat([clazz.name]);

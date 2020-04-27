@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "See https://github.com/Skyfire2008/spork/blob/master/README.md"
+	"releasenote": "Replaced setNamingType(...) with setNamingLong(...); Added assignments(...) function to generated entity factory method; Some bug fixes."
 }
