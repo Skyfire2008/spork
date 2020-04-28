@@ -21,3 +21,20 @@ class Health implements SharedProperty {
 		owner.health = this;
 	}
 }
+
+@noField
+class RegenHealth extends Health {
+	public var regen: Float;
+
+	public function new(hp: Int, regen: Float) {
+		super(hp);
+	}
+
+	public override function clone(): SharedProperty {
+		return new RegenHealth(this.hp, regen);
+	}
+
+	public override function attach(owner: PropertyHolder) {
+		owner.health = this;
+	}
+}

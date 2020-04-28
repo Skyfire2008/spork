@@ -142,7 +142,8 @@ class Macro {
 				case TInst(t, _):
 					var clazz = t.get();
 
-					if (clazz.isInterface) {
+					// do not create a field, if property has @noField metadata
+					if (clazz.meta.has("noField")) {
 						continue;
 					}
 
@@ -163,40 +164,42 @@ class Macro {
 		return fields;
 	}
 
-	// TODO: skip interfaces
 	public static macro function buildProperty(): Array<Field> {
 		var fields = Context.getBuildFields();
 		var clazz = Context.getLocalClass().get();
+		// TODO: check if property is subclass of other property class, then check which methods are already implemented
 
-		// put the property fields into map
-		var fieldNameMap: StringMap<Field> = new StringMap<Field>();
-		for (field in fields) {
-			fieldNameMap.set(field.name, field);
-		}
+		if (!clazz.isInterface) { // only process classes
+			// put the property fields into map
+			var fieldNameMap: StringMap<Field> = new StringMap<Field>();
+			for (field in fields) {
+				fieldNameMap.set(field.name, field);
+			}
 
-		// create clone method
-		if (!fieldNameMap.exists("clone")) {
-			fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
-		}
+			// create clone method
+			if (!fieldNameMap.exists("clone")) {
+				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
+			}
 
-		// create attach method
-		if (!fieldNameMap.exists("attach")) {
-			// get name of the field containing this property in property holder
-			var clazz = Context.getLocalClass().get();
-			var fieldName = getFieldNameFromClass(clazz);
+			// create attach method
+			if (!fieldNameMap.exists("attach")) {
+				// get name of the field containing this property in property holder
+				var clazz = Context.getLocalClass().get();
+				var fieldName = getFieldNameFromClass(clazz);
 
-			var funcExpr = macro(owner.$fieldName = this);
+				var funcExpr = macro(owner.$fieldName = this);
 
-			fields.push({
-				name: "attach",
-				access: [APublic],
-				pos: Context.currentPos(),
-				kind: FFun({
-					args: [{name: "owner", type: macro:spork.core.PropertyHolder}],
-					ret: null,
-					expr: funcExpr
-				})
-			});
+				fields.push({
+					name: "attach",
+					access: [APublic],
+					pos: Context.currentPos(),
+					kind: FFun({
+						args: [{name: "owner", type: macro:spork.core.PropertyHolder}],
+						ret: null,
+						expr: funcExpr
+					})
+				});
+			}
 		}
 
 		return fields;
