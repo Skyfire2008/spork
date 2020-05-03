@@ -19,7 +19,13 @@ interface Component {
 
 	/**
 	 * Attaches this component to an entity
-	 * @param ownew entity to attach to
+	 * @param owner entity to attach to
 	 */
 	public function attach(owner: Entity): Void;
+
+	/**
+	 * Used to create shared properties that the component needs, but the JSON doesn't supply
+	 * @return Array<SharedProperty>
+	 */
+	public function createProps(): Array<SharedProperty>;
 }

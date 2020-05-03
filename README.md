@@ -25,6 +25,7 @@ class Entity {
 	//...
 }
 ```
+Component can also generate shared properties via the `createProps()` method.
 * `SharedProperty` interface. Its implementations designate data, that is shared between different components(I know, this is not that good, since, for example for such properties as `velocity` and `position`, which are both 2d vectors, user would have to create 2 separate classes, but I'm working on that).
 * `PropertyHolder` class temporarily storing the shared properties read from the template, before they are assigned to components.
 * `JsonLoader` class, allowing the user to create entities from JSON templates loaded at runtime. JSON files must have 2 top-level properties, `properties` and `components`, containing the shared properties and components respectively. Properties of every shared property and component are the same as attribute of their constructors. For example, if we wish to create a basic enemy entity, using the following shared properties and components:

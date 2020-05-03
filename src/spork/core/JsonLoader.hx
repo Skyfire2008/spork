@@ -33,7 +33,15 @@ class JsonLoader {
 				throw('Unrecognize component $key');
 			}
 
-			components.push(factory(jsonComponents.get(key)));
+			var component = factory(jsonComponents.get(key));
+			components.push(component);
+
+			// TODO: maybe store name of the field that the property gets assigned to along with its priority?
+			// get properties created by component
+			var createdProps = component.createProps();
+			for (prop in createdProps) {
+				props.push(prop);
+			}
 		}
 
 		// create resulting factory function

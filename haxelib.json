@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Added @noField metadata for shared properties."
+	"releasenote": "Components can now generate shared properties; User can now define custom factory methods for shared properties and components."
 }

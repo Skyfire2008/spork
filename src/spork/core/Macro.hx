@@ -40,7 +40,7 @@ class Macro {
 		var propMapDecl: Array<Expr> = [];
 		var componentMapDecl: Array<Expr> = [];
 
-		var makeMapping = (type: Type) -> {
+		var makeJsonFactory = (type: Type) -> {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
@@ -50,32 +50,11 @@ class Macro {
 						return null;
 					}
 
-					// get array of call arguments for property constructor
-					var callArgs: Array<Expr> = [];
-					var constructor = clazz.constructor.get();
-					switch (constructor.type) {
-						case TFun(args, _):
-							trace(args);
-							for (arg in args) {
-								var name = arg.name;
-								callArgs.push(macro json.$name);
-							}
-						case TLazy(f): // in case the typing is not completed
-							switch (f()) {
-								case TFun(args, _):
-									for (arg in args) {
-										var name = arg.name;
-										callArgs.push(macro json.$name);
-									}
-								default:
-							}
-						default:
-					}
-
-					// create part of map declaration
 					var typePath = makeTypePath(clazz);
+					// make a mapping from field name to factory method, calling type's "fromJson(...)"
 					return macro $v{getFieldNameFromClass(clazz)} => (json: Dynamic) -> {
-						return new $typePath($a{callArgs});
+						// generate ident expression from typepath, taking modules into account
+						return $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
 					};
 
 				default:
@@ -85,7 +64,7 @@ class Macro {
 
 		// for every property type...
 		for (type in propTypes) {
-			var current = makeMapping(type);
+			var current = makeJsonFactory(type);
 			if (current != null) {
 				propMapDecl.push(current);
 			}
@@ -110,7 +89,7 @@ class Macro {
 
 		// for every component type...
 		for (type in componentTypes) {
-			var current = makeMapping(type);
+			var current = makeJsonFactory(type);
 			if (current != null) {
 				componentMapDecl.push(current);
 			}
@@ -176,12 +155,12 @@ class Macro {
 				fieldNameMap.set(field.name, field);
 			}
 
-			// create clone method
+			// create "clone" method
 			if (!fieldNameMap.exists("clone")) {
 				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
 			}
 
-			// create attach method
+			// create "attach" method
 			if (!fieldNameMap.exists("attach")) {
 				// get name of the field containing this property in property holder
 				var clazz = Context.getLocalClass().get();
@@ -199,6 +178,11 @@ class Macro {
 						expr: funcExpr
 					})
 				});
+			}
+
+			// create "fromJson" method
+			if (!fieldNameMap.exists("fromJson")) {
+				fields.push(makeFromJsonMethod(fieldNameMap.get("new"), clazz));
 			}
 		}
 
@@ -234,6 +218,25 @@ class Macro {
 						expr: macro {}
 					})
 				});
+			}
+
+			// if "createProps" doesn't exist, create it
+			if (!fieldNameMap.exists("createProps")) {
+				fields.push({
+					name: "createProps",
+					access: [APublic],
+					pos: Context.currentPos(),
+					kind: FFun({
+						args: [],
+						ret: macro:Array<spork.core.SharedProperty>,
+						expr: macro return []
+					})
+				});
+			}
+
+			// if "fromJson" doesn't exist, create it
+			if (!fieldNameMap.exists("fromJson")) {
+				fields.push(makeFromJsonMethod(fieldNameMap.get("new"), clazz));
 			}
 		}
 
@@ -291,6 +294,40 @@ class Macro {
 	}
 
 	#if macro
+	private static function makeFromJsonMethod(constructor: Field, clazz: ClassType): Field {
+		// check that constructor exists
+		if (constructor == null) {
+			Context.error('Shared property ${clazz.name} has no constructor, cannot create static method "fromJson"', Context.currentPos());
+		}
+
+		// create arguments for the call (json.arg1, ... json.argn)
+		var callArgs: Array<Expr> = [];
+		switch (constructor.kind) {
+			case FFun(f):
+				for (arg in f.args) {
+					var name = arg.name;
+					callArgs.push(macro json.$name);
+				}
+			default:
+		}
+
+		// create constructor call
+		var classPath = makeTypePath(clazz);
+		var funcExpr = macro return new $classPath($a{callArgs});
+
+		// create method field
+		return {
+			name: "fromJson",
+			access: [APublic, AStatic],
+			pos: Context.currentPos(),
+			kind: FFun({
+				args: [{name: "json", type: macro:Dynamic}],
+				ret: TPath(classPath),
+				expr: funcExpr
+			})
+		};
+	}
+
 	private static inline function makeCloneMethod(constructor: Field, clazz: ClassType): Field {
 		// check that constructor exists
 		if (constructor == null) {
@@ -368,7 +405,7 @@ class Macro {
 	}
 
 	/**
-	 * Creates a callback method for entity, calling callbacks of all appropriate
+	 * Creates a callback method for entity, calling callbacks of all appropriate components
 	 * @param callbackField
 	 * @param arrayName
 	 * @return Field
