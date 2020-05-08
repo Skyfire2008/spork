@@ -117,6 +117,8 @@ class Macro {
 		for (type in propTypes) {
 			// get field name
 			var name: String = "";
+			var initExpr: Expr = null;
+
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
@@ -124,6 +126,17 @@ class Macro {
 					// do not create a field, if property has @noField metadata
 					if (clazz.meta.has("noField")) {
 						continue;
+					}
+
+					// if property has @init metadata, initialize the field
+					if (clazz.meta.has("init")) {
+						// if there is an expression in metadata, use it
+						if (clazz.meta.extract("init")[0].params != null) {
+							initExpr = clazz.meta.extract("init")[0].params[0];
+						} else { // otherwise, take the constructor
+							var classPath = makeTypePath(clazz);
+							initExpr = macro new $classPath();
+						}
 					}
 
 					name = getFieldNameFromClass(clazz);
@@ -134,7 +147,7 @@ class Macro {
 				name: name,
 				access: [APublic],
 				pos: Context.currentPos(),
-				kind: FVar(TypeTools.toComplexType(type), null)
+				kind: FVar(TypeTools.toComplexType(type), initExpr)
 			});
 		}
 
