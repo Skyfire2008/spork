@@ -2,5 +2,10 @@ package spork.core;
 
 @:build(spork.core.Macro.buildEntity())
 class Entity {
-	public function new() {}
+	private static var currentId: Int = 0;
+	public var id(default, null): Int;
+
+	public function new() {
+		id = Entity.currentId++;
+	}
 }

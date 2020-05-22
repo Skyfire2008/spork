@@ -3,6 +3,8 @@ package spork.core;
 import haxe.DynamicAccess;
 import haxe.ds.StringMap;
 
+typedef EntityFactoryMethod = (assignments: (holder: PropertyHolder) -> Void) -> Entity
+
 @:build(spork.core.Macro.buildJsonLoader())
 class JsonLoader {
 	/**
@@ -10,7 +12,7 @@ class JsonLoader {
 	 * @param json template as Dynamic object, read from JSON file
 	 * @return entity creation function
 	 */
-	public static function makeLoader(json: Dynamic): (assignments: (holder: PropertyHolder) -> Void) -> Entity {
+	public static function makeLoader(json: Dynamic): EntityFactoryMethod {
 		var jsonProps: DynamicAccess<Dynamic> = json.properties;
 		var jsonComponents: DynamicAccess<Dynamic> = json.components;
 		var props: Array<SharedProperty> = [];
@@ -55,6 +57,9 @@ class JsonLoader {
 			for (prop in props) {
 				prop.clone().attach(holder);
 			}
+
+			// assign values to properties
+			assignments(holder);
 
 			// clone components, give them properties and attach to entity
 			for (comp in components) {

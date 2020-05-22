@@ -14,6 +14,7 @@ interface UpdateComponent extends Component {
 class Move implements UpdateComponent {
 	private var vel: Point;
 	private var pos: Point;
+	private var owner: Entity;
 
 	public function new() {}
 

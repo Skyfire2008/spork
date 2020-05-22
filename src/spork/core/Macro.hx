@@ -270,32 +270,45 @@ class Macro {
 
 					// only process interfaces
 					if (clazz.isInterface) {
-						var arrayName = "";
+						var fieldName = "";
 						var entry = clazz.meta.extract("name");
 						var params = entry.length > 0 ? entry[0].params : [];
 
 						// get name for component array
 						if (params.length > 0) {
-							arrayName = ExprTools.getValue(params[0]);
+							fieldName = ExprTools.getValue(params[0]);
 						} else {
-							arrayName = (clazz.name.charAt(0)).toLowerCase() + clazz.name.substring(1) + "s";
+							fieldName = (clazz.name.charAt(0)).toLowerCase() + clazz.name.substring(1);
 						}
 
-						// add component array field
-						var field: Field = {
-							name: arrayName,
-							access: [APublic],
-							pos: Context.currentPos(),
-							kind: FieldType.FVar(TPath({name: "Array", pack: [], params: [TPType(TypeTools.toComplexType(type))]}), null)
-						};
+						var field: Field = null;
+						var isSingular: Bool = false;
+						if (clazz.meta.has("singular")) {
+							isSingular = true;
+							// if singular, add a field of given component type
+							field = {
+								name: fieldName,
+								access: [APublic],
+								pos: Context.currentPos(),
+								kind: FieldType.FVar(TypeTools.toComplexType(type))
+							};
+						} else {
+							// otherwise add component array field
+							fieldName = fieldName + "s";
+							field = {
+								name: fieldName,
+								access: [APublic],
+								pos: Context.currentPos(),
+								kind: FieldType.FVar(TPath({name: "Array", pack: [], params: [TPType(TypeTools.toComplexType(type))]}), macro [])
+							};
+						}
 
 						fields.push(field);
 
 						// add callback method
 						for (classField in clazz.fields.get()) {
 							if (classField.meta.has("callback")) {
-								fields.push(makeEntityCallback(classField, arrayName));
-								break;
+								fields.push(makeEntityCallback(classField, fieldName, isSingular));
 							}
 						}
 					}
@@ -423,7 +436,7 @@ class Macro {
 	 * @param arrayName
 	 * @return Field
 	 */
-	private static function makeEntityCallback(callbackField: ClassField, arrayName: String): Field {
+	private static function makeEntityCallback(callbackField: ClassField, fieldName: String, isSingular: Bool): Field {
 		var methodName = callbackField.name;
 		var argDefs;
 		var retType: Type;
@@ -449,9 +462,14 @@ class Macro {
 		}
 
 		// create function expression using reification
-		var callback = macro for (c in $i{arrayName}) {
-			c.$methodName($a{callArgs});
-		};
+		var callback: Expr = null;
+		if (isSingular) {
+			callback = macro return $p{[fieldName, methodName]}();
+		} else {
+			callback = macro for (c in $i{fieldName}) {
+				c.$methodName($a{callArgs});
+			};
+		}
 
 		// define the field
 		var field: Field = {
