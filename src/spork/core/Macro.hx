@@ -1,5 +1,6 @@
 package spork.core;
 
+import haxe.macro.ComplexTypeTools;
 import haxe.macro.Printer;
 import haxe.macro.Expr;
 import haxe.macro.Type;
@@ -250,6 +251,52 @@ class Macro {
 			// if "fromJson" doesn't exist, create it
 			if (!fieldNameMap.exists("fromJson")) {
 				fields.push(makeFromJsonMethod(fieldNameMap.get("new"), clazz));
+			}
+
+			// if "attach" doesn't exist, create it
+			if (!fieldNameMap.exists("attach")) {
+				var exprs: Array<Expr> = [];
+				// add owner assignment
+				exprs.push(macro this.owner = owner);
+
+				// for every interface implemented by this component...
+				var componentClass = TypeTools.getClass(Context.getType("spork.core.Component"));
+				for (foobar in clazz.interfaces) {
+					var interfaze = foobar.t.get();
+					// only process interfaces extending Component
+					if (isSubClass(interfaze, componentClass, false)) {
+						// get name for component array
+						var entry = interfaze.meta.extract("name");
+						var params = entry.length > 0 ? entry[0].params : [];
+						var componentFieldName: String;
+
+						if (params.length > 0) {
+							componentFieldName = ExprTools.getValue(params[0]);
+						} else {
+							componentFieldName = (interfaze.name.charAt(0)).toLowerCase() + interfaze.name.substring(1);
+						}
+
+						// if component is singular, assign this as its value
+						if (interfaze.meta.has("singular")) {
+							exprs.push(macro owner.$componentFieldName = this);
+						} else {
+							// otherwise, push the component into the array
+							componentFieldName += "s";
+							exprs.push(macro owner.$componentFieldName.push(this));
+						}
+					}
+				}
+
+				fields.push({
+					name: "attach",
+					access: [APublic],
+					pos: Context.currentPos(),
+					kind: FFun({
+						args: [{name: "owner", type: macro:spork.core.Entity}],
+						ret: macro:Void,
+						expr: macro $b{exprs}
+					})
+				});
 			}
 		}
 

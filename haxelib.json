@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.5.0",
+	"version": "0.6.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Added @singular components; Entities have ids now."
+	"releasenote": "Added generation of attach method for components"
 }
