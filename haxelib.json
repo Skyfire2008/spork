@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Added generation of attach method for components"
+	"releasenote": "Reworked shared properties"
 }

@@ -3,7 +3,7 @@ package spork.core;
 import haxe.DynamicAccess;
 import haxe.ds.StringMap;
 
-typedef EntityFactoryMethod = (assignments: (holder: PropertyHolder) -> Void) -> Entity
+typedef EntityFactoryMethod = (assignments: (holder: PropertyHolder) -> Void) -> Entity;
 
 @:build(spork.core.Macro.buildJsonLoader())
 class JsonLoader {
@@ -13,20 +13,8 @@ class JsonLoader {
 	 * @return entity creation function
 	 */
 	public static function makeLoader(json: Dynamic): EntityFactoryMethod {
-		var jsonProps: DynamicAccess<Dynamic> = json.properties;
 		var jsonComponents: DynamicAccess<Dynamic> = json.components;
-		var props: Array<SharedProperty> = [];
 		var components: Array<Component> = [];
-
-		// load shared properties
-		for (key in jsonProps.keys()) {
-			var factory = JsonLoader.propFactories.get(key);
-			if (factory == null) {
-				throw('Unrecognized shared property $key');
-			}
-
-			props.push(factory(jsonProps.get(key)));
-		}
 
 		// load components here
 		for (key in jsonComponents.keys()) {
@@ -37,13 +25,6 @@ class JsonLoader {
 
 			var component = factory(jsonComponents.get(key));
 			components.push(component);
-
-			// TODO: maybe store name of the field that the property gets assigned to along with its priority?
-			// get properties created by component
-			var createdProps = component.createProps();
-			for (prop in createdProps) {
-				props.push(prop);
-			}
 		}
 
 		// create resulting factory function
@@ -52,18 +33,22 @@ class JsonLoader {
 			// init entity
 			var result = new Entity();
 
-			// attach clones of properties to holder
+			// init holder
 			var holder = new PropertyHolder();
-			for (prop in props) {
-				prop.clone().attach(holder);
+
+			// clone components and create properties
+			var clones: Array<Component> = [];
+			for (comp in components) {
+				var clone = comp.clone();
+				clone.createProps(holder);
+				clones.push(clone);
 			}
 
 			// assign values to properties
 			assignments(holder);
 
-			// clone components, give them properties and attach to entity
-			for (comp in components) {
-				var clone = comp.clone();
+			// assign properties to clones and attach them to entity
+			for (clone in clones) {
 				clone.assignProps(holder);
 				clone.attach(result);
 			}

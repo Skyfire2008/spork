@@ -18,9 +18,13 @@ using Lambda;
 class Macro {
 	private static var propClassPaths: Array<String> = [];
 	private static var componentsClassPaths: Array<String> = [];
-	private static var propTypes: Array<Type> = null;
 	private static var componentTypes: Array<Type> = null;
 	private static var isNamingLong: Bool = false;
+	private static var holderClassName: String;
+
+	public static macro function setPropertyHolder(className: String): Void {
+		holderClassName = className;
+	}
 
 	public static macro function setNamingLong(value: Bool): Void {
 		isNamingLong = value;
@@ -35,7 +39,6 @@ class Macro {
 	}
 
 	public static macro function buildJsonLoader(): Array<Field> {
-		var propTypes = getPropTypes();
 		var componentTypes = getComponentTypes();
 		var fields = Context.getBuildFields();
 		var propMapDecl: Array<Expr> = [];
@@ -63,31 +66,6 @@ class Macro {
 			return null;
 		}
 
-		// for every property type...
-		for (type in propTypes) {
-			var current = makeJsonFactory(type);
-			if (current != null) {
-				propMapDecl.push(current);
-			}
-		}
-
-		// choose init expression for propFactories:
-		var propFactoriesInitExpr: Expr = null;
-		if (propMapDecl.length > 0) {
-			propFactoriesInitExpr = {
-				expr: EArrayDecl(propMapDecl),
-				pos: Context.currentPos()
-			};
-		}
-
-		// add propFactories map
-		fields.push({
-			name: "propFactories",
-			access: [APublic, AStatic],
-			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.SharedProperty >, propFactoriesInitExpr)
-		});
-
 		// for every component type...
 		for (type in componentTypes) {
 			var current = makeJsonFactory(type);
@@ -111,93 +89,12 @@ class Macro {
 	}
 
 	public static macro function buildPropHolder(): Array<Field> {
-		var propTypes: Array<Type> = getPropTypes();
 		var fields = Context.getBuildFields();
 
-		// add shared property fields
-		for (type in propTypes) {
-			// get field name
-			var name: String = "";
-			var initExpr: Expr = null;
-
-			switch (type) {
-				case TInst(t, _):
-					var clazz = t.get();
-
-					// do not create a field, if property has @noField metadata
-					if (clazz.meta.has("noField")) {
-						continue;
-					}
-
-					// if property has @init metadata, initialize the field
-					if (clazz.meta.has("init")) {
-						// if there is an expression in metadata, use it
-						if (clazz.meta.extract("init")[0].params != null) {
-							initExpr = clazz.meta.extract("init")[0].params[0];
-						} else { // otherwise, take the constructor
-							var classPath = makeTypePath(clazz);
-							initExpr = macro new $classPath();
-						}
-					}
-
-					name = getFieldNameFromClass(clazz);
-				default:
-			}
-
-			fields.push({
-				name: name,
-				access: [APublic],
-				pos: Context.currentPos(),
-				kind: FVar(TypeTools.toComplexType(type), initExpr)
-			});
-		}
-
-		// add
-
-		return fields;
-	}
-
-	public static macro function buildProperty(): Array<Field> {
-		var fields = Context.getBuildFields();
-		var clazz = Context.getLocalClass().get();
-		// TODO: check if property is subclass of other property class, then check which methods are already implemented
-
-		if (!clazz.isInterface) { // only process classes
-			// put the property fields into map
-			var fieldNameMap: StringMap<Field> = new StringMap<Field>();
-			for (field in fields) {
-				fieldNameMap.set(field.name, field);
-			}
-
-			// create "clone" method
-			if (!fieldNameMap.exists("clone")) {
-				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
-			}
-
-			// create "attach" method
-			if (!fieldNameMap.exists("attach")) {
-				// get name of the field containing this property in property holder
-				var clazz = Context.getLocalClass().get();
-				var fieldName = getFieldNameFromClass(clazz);
-
-				var funcExpr = macro(owner.$fieldName = this);
-
-				fields.push({
-					name: "attach",
-					access: [APublic],
-					pos: Context.currentPos(),
-					kind: FFun({
-						args: [{name: "owner", type: macro:spork.core.PropertyHolder}],
-						ret: null,
-						expr: funcExpr
-					})
-				});
-			}
-
-			// create "fromJson" method
-			if (!fieldNameMap.exists("fromJson")) {
-				fields.push(makeFromJsonMethod(fieldNameMap.get("new"), clazz));
-			}
+		var classFields = TypeTools.getClass(Context.getType(holderClassName)).fields.get();
+		for (field in classFields) {
+			@:privateAccess
+			fields.push(TypeTools.toField(field));
 		}
 
 		return fields;
@@ -241,9 +138,9 @@ class Macro {
 					access: [APublic],
 					pos: Context.currentPos(),
 					kind: FFun({
-						args: [],
-						ret: macro:Array<spork.core.SharedProperty>,
-						expr: macro return []
+						args: [{name: "holder", type: macro:spork.core.PropertyHolder}],
+						ret: macro:Void,
+						expr: macro {}
 					})
 				});
 			}
@@ -459,22 +356,6 @@ class Macro {
 		}
 
 		return componentTypes;
-	}
-
-	/**
-	 * Retrieves the array of types implementing SharedProperty
-	 */
-	private static inline function getPropTypes(): Array<Type> {
-		if (propTypes == null) {
-			var propClass = TypeTools.getClass(Context.getType("spork.core.SharedProperty"));
-			propTypes = [];
-
-			for (path in propClassPaths) {
-				propTypes = propTypes.concat(getSubClasses(propClass, getTypes(path), true));
-			}
-		}
-
-		return propTypes;
 	}
 
 	/**
