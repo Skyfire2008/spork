@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Reworked shared properties"
+	"releasenote": "Fixed bug with not passing arguments to methods of singular components"
 }

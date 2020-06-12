@@ -392,7 +392,7 @@ class Macro {
 		// create function expression using reification
 		var callback: Expr = null;
 		if (isSingular) {
-			callback = macro return $p{[fieldName, methodName]}();
+			callback = macro return $p{[fieldName, methodName]}($a{callArgs});
 		} else {
 			callback = macro for (c in $i{fieldName}) {
 				c.$methodName($a{callArgs});
