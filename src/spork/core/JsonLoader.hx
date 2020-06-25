@@ -12,18 +12,18 @@ class JsonLoader {
 	 * @param json template as Dynamic object, read from JSON file
 	 * @return entity creation function
 	 */
-	public static function makeLoader(json: Dynamic): EntityFactoryMethod {
-		var jsonComponents: DynamicAccess<Dynamic> = json.components;
+	public static function makeLoader(json: EntityDef): EntityFactoryMethod {
+		var jsonComponents = json.components;
 		var components: Array<Component> = [];
 
 		// load components here
-		for (key in jsonComponents.keys()) {
-			var factory = JsonLoader.componentFactories.get(key);
+		for (compoJson in jsonComponents) {
+			var factory = JsonLoader.componentFactories.get(compoJson.name);
 			if (factory == null) {
-				throw('Unrecognize component $key');
+				throw('Unrecognize component ${compoJson.name}');
 			}
 
-			var component = factory(jsonComponents.get(key));
+			var component = factory(compoJson.params);
 			components.push(component);
 		}
 

@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.7.1",
+	"version": "0.8.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Fixed bug with not passing arguments to methods of singular components"
+	"releasenote": "Changed 'components' property of JSON template from object to array, allowing multiple components of the same type."
 }
