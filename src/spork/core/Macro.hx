@@ -16,7 +16,6 @@ import haxe.io.Path;
 using Lambda;
 
 class Macro {
-	private static var propClassPaths: Array<String> = [];
 	private static var componentsClassPaths: Array<String> = [];
 	private static var componentTypes: Array<Type> = null;
 	private static var isNamingLong: Bool = false;
@@ -34,17 +33,14 @@ class Macro {
 		componentsClassPaths = paths;
 	}
 
-	public static macro function setPropClassPath(paths: Array<String>): Void {
-		propClassPaths = paths;
-	}
-
 	public static macro function buildJsonLoader(): Array<Field> {
 		var componentTypes = getComponentTypes();
 		var fields = Context.getBuildFields();
 		var propMapDecl: Array<Expr> = [];
 		var componentMapDecl: Array<Expr> = [];
+		var propMapDecl: Array<Expr> = [];
 
-		var makeJsonFactory = (type: Type) -> {
+		var makeComponentFactory = (type: Type) -> {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
@@ -66,23 +62,79 @@ class Macro {
 			return null;
 		}
 
-		// for every component type...
+		// for every component type create a factory
 		for (type in componentTypes) {
-			var current = makeJsonFactory(type);
+			var current = makeComponentFactory(type);
 			if (current != null) {
 				componentMapDecl.push(current);
 			}
 		}
 
-		// add componentFactories map
+		// if components available, generate expr, otherwise just create a new StringMap
+		var composExpr: Expr = null;
+		if (componentMapDecl.length > 0) {
+			composExpr = {
+				pos: Context.currentPos(),
+				expr: EArrayDecl(componentMapDecl)
+			};
+		} else {
+			composExpr = macro new haxe.ds.StringMap<(Dynamic) -> spork.core.Component>();
+		}
+
+		// add componentFactories field
 		fields.push({
 			name: "componentFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.Component >, {
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.Component >, composExpr)
+		});
+
+		// add propFactories map
+		var makePropFactory = (type: Type, propName: String) -> {
+			switch (type) {
+				case TInst(t, _):
+					var clazz = t.get();
+
+					// skip interfaces
+					if (clazz.isInterface) {
+						return null;
+					}
+
+					var typePath = makeTypePath(clazz);
+					// make a mapping from field name to factory method, calling type's "fromJson(...)"
+					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
+						// holder.{propName} = {typePath}.fromJson(json)
+						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
+					};
+				default:
+			}
+			return null;
+		};
+
+		var holderClassFields = TypeTools.getClass(Context.getType(holderClassName)).fields.get();
+		for (field in holderClassFields) {
+			var current = makePropFactory(field.type, field.name);
+			if (current != null) {
+				propMapDecl.push(current);
+			}
+		}
+
+		var propsExpr: Expr = null;
+		if (propMapDecl.length > 0) {
+			propsExpr = {
 				pos: Context.currentPos(),
-				expr: EArrayDecl(componentMapDecl)
-			})
+				expr: EArrayDecl(propMapDecl)
+			};
+		} else {
+			// if no components available, just create a new StringMap
+			propsExpr = macro new haxe.ds.StringMap<(Dynamic, spork.core.PropertyHolder) -> Void>();
+		}
+
+		fields.push({
+			name: "propertyFactories",
+			access: [APublic, AStatic],
+			pos: Context.currentPos(),
+			kind: FVar(macro:haxe.ds.StringMap < (Dynamic, spork.core.PropertyHolder) -> Void >, propsExpr)
 		});
 
 		return fields;
@@ -95,6 +147,25 @@ class Macro {
 		for (field in classFields) {
 			@:privateAccess
 			fields.push(TypeTools.toField(field));
+		}
+
+		return fields;
+	}
+
+	public static macro function buildProperty(): Array<Field> {
+		var clazz = Context.getLocalClass().get();
+		var fields = Context.getBuildFields();
+
+		// skip interfaces
+		if (!clazz.isInterface) {
+			// add "fromJson" if it's missing
+			if (!fields.exists((item) -> {
+				return item.name == "fromJson";
+			})) {
+				fields.push(makeFromJsonMethod(fields.find((item) -> {
+					return item.name == "new";
+				}), clazz));
+			}
 		}
 
 		return fields;
@@ -267,7 +338,7 @@ class Macro {
 	private static function makeFromJsonMethod(constructor: Field, clazz: ClassType): Field {
 		// check that constructor exists
 		if (constructor == null) {
-			Context.error('Shared property ${clazz.name} has no constructor, cannot create static method "fromJson"', Context.currentPos());
+			Context.error('Class ${clazz.name} has no constructor, cannot create static method "fromJson"', Context.currentPos());
 		}
 
 		// create arguments for the call (json.arg1, ... json.argn)
