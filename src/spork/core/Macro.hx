@@ -188,6 +188,16 @@ class Macro {
 				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
 			}
 
+			// if "owner" doesn't exist, create it
+			if (!fieldNameMap.exists("owner")) {
+				fields.push({
+					name: "owner",
+					access: [APrivate],
+					pos: Context.currentPos(),
+					kind: FVar(macro:spork.core.Entity, macro null)
+				});
+			}
+
 			// if "assignProps" doesn't exist, create it
 			if (!fieldNameMap.exists("assignProps")) {
 				fields.push({
@@ -372,7 +382,7 @@ class Macro {
 	private static inline function makeCloneMethod(constructor: Field, clazz: ClassType): Field {
 		// check that constructor exists
 		if (constructor == null) {
-			Context.error('Shared property ${clazz.name} has no constructor, cannot create method "clone"', Context.currentPos());
+			Context.error('Class ${clazz.name} has no constructor, cannot create method "clone"', Context.currentPos());
 		}
 
 		// get call arguments of the constructor
