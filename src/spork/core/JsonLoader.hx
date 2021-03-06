@@ -3,7 +3,7 @@ package spork.core;
 import haxe.DynamicAccess;
 import haxe.ds.StringMap;
 
-typedef EntityFactoryMethod = (assignments: (holder: PropertyHolder) -> Void) -> Entity;
+typedef EntityFactoryMethod = (?assignments: (holder: PropertyHolder) -> Void) -> Entity;
 
 @:build(spork.core.Macro.buildJsonLoader())
 class JsonLoader {
@@ -41,7 +41,7 @@ class JsonLoader {
 
 		// create resulting factory function
 		// assignments is used to assign starting values(e.g. position, etc.) to properties
-		var func = (assignments: (holder: PropertyHolder) -> Void) -> {
+		var func = (?assignments: (holder: PropertyHolder) -> Void) -> {
 			// init entity
 			var result = new Entity();
 
@@ -62,7 +62,9 @@ class JsonLoader {
 			}
 
 			// assign values to properties
-			assignments(holder);
+			if (assignments != null) {
+				assignments(holder);
+			}
 
 			// assign properties to clones and attach them to entity
 			for (clone in clones) {
