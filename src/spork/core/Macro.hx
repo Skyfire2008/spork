@@ -209,6 +209,27 @@ class Macro {
 
 			// if "assignProps" doesn't exist, create it
 			if (!fieldNameMap.exists("assignProps")) {
+				// go through fields of component to find ones with @property
+				var assignExprs: Array<Expr> = [];
+
+				for (field in fields) {
+					var propMeta = field.meta.find((e) -> {
+						return e.name == "property";
+					});
+					if (propMeta != null) {
+						var propName = field.name;
+						var holderPropName: String;
+
+						if (propMeta.params != null && propMeta.params.length > 0) {
+							holderPropName = ExprTools.getValue(propMeta.params[0]);
+						} else {
+							holderPropName = field.name;
+						}
+
+						assignExprs.push(macro this.$propName = holder.$holderPropName);
+					}
+				}
+
 				fields.push({
 					name: "assignProps",
 					access: [APublic],
@@ -216,7 +237,7 @@ class Macro {
 					kind: FFun({
 						args: [{name: "holder", type: macro:spork.core.PropertyHolder}],
 						ret: null,
-						expr: macro {}
+						expr: macro $b{assignExprs}
 					})
 				});
 			}
