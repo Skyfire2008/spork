@@ -10,9 +10,10 @@ class JsonLoader {
 	/**
 	 * Creates a fatory method for creating new entities from template
 	 * @param json template as Dynamic object, read from JSON file
+	 * @param templateName name of template
 	 * @return entity creation function
 	 */
-	public static function makeLoader(json: EntityDef): EntityFactoryMethod {
+	public static function makeLoader(json: EntityDef, templateName: String): EntityFactoryMethod {
 		var jsonComponents = json.components;
 		var jsonProps: DynamicAccess<Dynamic> = json.properties;
 		var components: Array<Component> = [];
@@ -43,7 +44,7 @@ class JsonLoader {
 		// assignments is used to assign starting values(e.g. position, etc.) to properties
 		var func = (?assignments: (holder: PropertyHolder) -> Void) -> {
 			// init entity
-			var result = new Entity();
+			var result = new Entity(templateName);
 
 			// init holder
 			var holder = new PropertyHolder();

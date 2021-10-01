@@ -86,7 +86,7 @@ class Macro {
 			name: "componentFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic) -> spork.core.Component >, composExpr)
+			kind: FVar(macro:haxe.ds.StringMap<(Dynamic) -> spork.core.Component>, composExpr)
 		});
 
 		// add propFactories map
@@ -101,6 +101,15 @@ class Macro {
 					}
 
 					var typePath = makeTypePath(clazz);
+					// make a mapping from field name to factory method, calling type's "fromJson(...)"
+					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
+						// holder.{propName} = {typePath}.fromJson(json)
+						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
+					};
+				case TAbstract(t, _):
+					var abztract = t.get();
+
+					var typePath = makeTypePath(abztract);
 					// make a mapping from field name to factory method, calling type's "fromJson(...)"
 					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
 						// holder.{propName} = {typePath}.fromJson(json)
@@ -134,7 +143,7 @@ class Macro {
 			name: "propertyFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap < (Dynamic, spork.core.PropertyHolder) -> Void >, propsExpr)
+			kind: FVar(macro:haxe.ds.StringMap<(Dynamic, spork.core.PropertyHolder) -> Void>, propsExpr)
 		});
 
 		return fields;
@@ -292,6 +301,7 @@ class Macro {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
+					trace(clazz.name);
 
 					// only process interfaces
 					if (clazz.isInterface) {
@@ -412,7 +422,7 @@ class Macro {
 		};
 	}
 
-	private static inline function makeTypePath(clazz: ClassType): TypePath {
+	private static inline function makeTypePath(clazz: BaseType): TypePath {
 		var result: TypePath = {name: clazz.name, pack: clazz.pack};
 		var module = clazz.module.substring(clazz.module.lastIndexOf(".") + 1);
 		if (clazz.name != module) { // for sub-types, typepath name is set to module name, and sub is set to actual type name

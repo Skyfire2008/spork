@@ -28,6 +28,6 @@ interface Component {
 	/**
 	 * Used to create shared properties that the component needs, but the JSON doesn't supply
 	 */
-	@:deprecated
+	// @:deprecated
 	public function createProps(holder: PropertyHolder): Void;
 }
