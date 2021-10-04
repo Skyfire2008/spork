@@ -8,39 +8,37 @@ import haxe.macro.Context;
 import haxe.macro.TypeTools;
 import haxe.macro.ExprTools;
 import haxe.ds.StringMap;
-
 import sys.FileSystem;
-
 import haxe.io.Path;
 
 using Lambda;
 
 class Macro {
-	private static var componentsClassPaths: Array<String> = [];
-	private static var componentTypes: Array<Type> = null;
-	private static var isNamingLong: Bool = false;
-	private static var holderClassName: String;
+	private static var componentsClassPaths:Array<String> = [];
+	private static var componentTypes:Array<Type> = null;
+	private static var isNamingLong:Bool = false;
+	private static var holderClassName:String;
 
-	public static macro function setPropertyHolder(className: String): Void {
+	public static macro function setPropertyHolder(className:String):Void {
 		holderClassName = className;
 	}
 
-	public static macro function setNamingLong(value: Bool): Void {
+	public static macro function setNamingLong(value:Bool):Void {
 		isNamingLong = value;
 	}
 
-	public static macro function setComponentsClassPath(paths: Array<String>): Void {
+	public static macro function setComponentsClassPath(paths:Array<String>):Void {
 		componentsClassPaths = paths;
 	}
 
-	public static macro function buildJsonLoader(): Array<Field> {
+	public static macro function buildJsonLoader():Array<Field> {
 		var componentTypes = getComponentTypes();
 		var fields = Context.getBuildFields();
-		var propMapDecl: Array<Expr> = [];
-		var componentMapDecl: Array<Expr> = [];
-		var propMapDecl: Array<Expr> = [];
+		var propMapDecl:Array<Expr> = [];
+		var componentMapDecl:Array<Expr> = [];
+		var propMapDecl:Array<Expr> = [];
 
-		var makeComponentFactory = (type: Type) -> {
+		var makeComponentFactory = (type:Type) -> {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
@@ -52,7 +50,7 @@ class Macro {
 
 					var typePath = makeTypePath(clazz);
 					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{getFieldNameFromClass(clazz)} => (json: Dynamic) -> {
+					return macro $v{getFieldNameFromClass(clazz)} => (json:Dynamic) -> {
 						// generate ident expression from typepath, taking modules into account
 						return $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
 					};
@@ -71,7 +69,7 @@ class Macro {
 		}
 
 		// if components available, generate expr, otherwise just create a new StringMap
-		var composExpr: Expr = null;
+		var composExpr:Expr = null;
 		if (componentMapDecl.length > 0) {
 			composExpr = {
 				pos: Context.currentPos(),
@@ -90,7 +88,7 @@ class Macro {
 		});
 
 		// add propFactories map
-		var makePropFactory = (type: Type, propName: String) -> {
+		var makePropFactory = (type:Type, propName:String) -> {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
@@ -102,7 +100,7 @@ class Macro {
 
 					var typePath = makeTypePath(clazz);
 					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
+					return macro $v{propName} => (json:Dynamic, holder:spork.core.PropertyHolder) -> {
 						// holder.{propName} = {typePath}.fromJson(json)
 						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
 					};
@@ -128,7 +126,7 @@ class Macro {
 			}
 		}
 
-		var propsExpr: Expr = null;
+		var propsExpr:Expr = null;
 		if (propMapDecl.length > 0) {
 			propsExpr = {
 				pos: Context.currentPos(),
@@ -149,7 +147,7 @@ class Macro {
 		return fields;
 	}
 
-	public static macro function buildPropHolder(): Array<Field> {
+	public static macro function buildPropHolder():Array<Field> {
 		var fields = Context.getBuildFields();
 
 		var classFields = TypeTools.getClass(Context.getType(holderClassName)).fields.get();
@@ -161,7 +159,7 @@ class Macro {
 		return fields;
 	}
 
-	public static macro function buildProperty(): Array<Field> {
+	public static macro function buildProperty():Array<Field> {
 		var clazz = Context.getLocalClass().get();
 		var fields = Context.getBuildFields();
 
@@ -180,14 +178,14 @@ class Macro {
 		return fields;
 	}
 
-	public static macro function buildComponent(): Array<Field> {
+	public static macro function buildComponent():Array<Field> {
 		var fields = Context.getBuildFields();
 		var clazz = Context.getLocalClass().get();
 
 		// skip interfaces
 		if (!clazz.isInterface) {
 			// put all fields into a map
-			var fieldNameMap: StringMap<Field> = new StringMap<Field>();
+			var fieldNameMap:StringMap<Field> = new StringMap<Field>();
 			for (field in fields) {
 				fieldNameMap.set(field.name, field);
 			}
@@ -269,7 +267,7 @@ class Macro {
 
 			// if "attach" doesn't exist, create it
 			if (!fieldNameMap.exists("attach")) {
-				var exprs: Array<Expr> = [];
+				var exprs:Array<Expr> = [];
 				// add owner assignment
 				exprs.push(macro this.owner = owner);
 
@@ -282,7 +280,7 @@ class Macro {
 						// get name for component array
 						var entry = interfaze.meta.extract("name");
 						var params = entry.length > 0 ? entry[0].params : [];
-						var componentFieldName: String;
+						var componentFieldName:String;
 
 						if (params.length > 0) {
 							componentFieldName = ExprTools.getValue(params[0]);
@@ -317,9 +315,9 @@ class Macro {
 		return fields;
 	}
 
-	public static macro function buildEntity(): Array<Field> {
+	public static macro function buildEntity():Array<Field> {
 		var fields = Context.getBuildFields();
-		var compoTypes: Array<Type> = [];
+		var compoTypes:Array<Type> = [];
 
 		for (path in componentsClassPaths) {
 			compoTypes = getComponentTypes();
@@ -343,8 +341,8 @@ class Macro {
 							fieldName = (clazz.name.charAt(0)).toLowerCase() + clazz.name.substring(1);
 						}
 
-						var field: Field = null;
-						var isSingular: Bool = false;
+						var field:Field = null;
+						var isSingular:Bool = false;
 						if (clazz.meta.has("singular")) {
 							isSingular = true;
 							// if singular, add a field of given component type
@@ -382,14 +380,14 @@ class Macro {
 	}
 
 	#if macro
-	private static function makeFromJsonMethod(constructor: Field, clazz: ClassType): Field {
+	private static function makeFromJsonMethod(constructor:Field, clazz:ClassType):Field {
 		// check that constructor exists
 		if (constructor == null) {
 			Context.error('Class ${clazz.name} has no constructor, cannot create static method "fromJson"', Context.currentPos());
 		}
 
 		// create arguments for the call (json.arg1, ... json.argn)
-		var callArgs: Array<Expr> = [];
+		var callArgs:Array<Expr> = [];
 		switch (constructor.kind) {
 			case FFun(f):
 				for (arg in f.args) {
@@ -416,14 +414,14 @@ class Macro {
 		};
 	}
 
-	private static inline function makeCloneMethod(constructor: Field, clazz: ClassType): Field {
+	private static inline function makeCloneMethod(constructor:Field, clazz:ClassType):Field {
 		// check that constructor exists
 		if (constructor == null) {
 			Context.error('Class ${clazz.name} has no constructor, cannot create method "clone"', Context.currentPos());
 		}
 
 		// get call arguments of the constructor
-		var callArgs: Array<Expr> = [];
+		var callArgs:Array<Expr> = [];
 		switch (constructor.kind) {
 			case FFun(f):
 				for (arg in f.args) {
@@ -449,8 +447,13 @@ class Macro {
 		};
 	}
 
+<<<<<<< HEAD
 	private static inline function makeTypePath(clazz: BaseType): TypePath {
 		var result: TypePath = {name: clazz.name, pack: clazz.pack};
+=======
+	private static inline function makeTypePath(clazz:ClassType):TypePath {
+		var result:TypePath = {name: clazz.name, pack: clazz.pack};
+>>>>>>> 447563c893685fe22f86da7f4d0996eaa33d4b70
 		var module = clazz.module.substring(clazz.module.lastIndexOf(".") + 1);
 		if (clazz.name != module) { // for sub-types, typepath name is set to module name, and sub is set to actual type name
 			result.name = module;
@@ -463,7 +466,7 @@ class Macro {
 	/**
 	 * Retrieves the array of types implementing Component
 	 */
-	private static inline function getComponentTypes(): Array<Type> {
+	private static inline function getComponentTypes():Array<Type> {
 		if (componentTypes == null) {
 			var componentClass = TypeTools.getClass(Context.getType("spork.core.Component"));
 			componentTypes = [];
@@ -482,10 +485,10 @@ class Macro {
 	 * @param arrayName
 	 * @return Field
 	 */
-	private static function makeEntityCallback(callbackField: ClassField, fieldName: String, isSingular: Bool): Field {
+	private static function makeEntityCallback(callbackField:ClassField, fieldName:String, isSingular:Bool):Field {
 		var methodName = callbackField.name;
 		var argDefs;
-		var retType: Type;
+		var retType:Type;
 
 		// extract the return type and call arguments from class field
 		switch (callbackField.type) {
@@ -496,8 +499,8 @@ class Macro {
 		}
 
 		// create array of expression for callback call arguments and function arguments for field
-		var callArgs: Array<Expr> = [];
-		var fieldArgs: Array<FunctionArg> = [];
+		var callArgs:Array<Expr> = [];
+		var fieldArgs:Array<FunctionArg> = [];
 		for (argDef in argDefs) {
 			callArgs.push(macro $i{argDef.name});
 			fieldArgs.push({
@@ -508,7 +511,7 @@ class Macro {
 		}
 
 		// create function expression using reification
-		var callback: Expr = null;
+		var callback:Expr = null;
 		if (isSingular) {
 			callback = macro return $p{[fieldName, methodName]}($a{callArgs});
 		} else {
@@ -518,7 +521,7 @@ class Macro {
 		}
 
 		// define the field
-		var field: Field = {
+		var field:Field = {
 			name: methodName,
 			access: [APublic],
 			pos: Context.currentPos(),
@@ -537,23 +540,23 @@ class Macro {
 	 * @param clazz
 	 * @return String
 	 */
-	private static inline function getFieldNameFromClass(clazz: ClassType): String {
+	private static inline function getFieldNameFromClass(clazz:ClassType):String {
 		var meta = clazz.meta.extract("name");
-		var fieldName: String;
+		var fieldName:String;
 
 		// first, try to get the name from metadata
 		if (meta.length > 0 && meta[0].params.length > 0) {
 			fieldName = ExprTools.getValue(meta[0].params[0]);
 		} else {
 			// otherwise, get it from classpath
-			var pack: Array<String> = [];
+			var pack:Array<String> = [];
 			if (!isNamingLong) {
 				pack = [clazz.name];
 			} else {
 				pack = clazz.pack.concat([clazz.name]);
 			}
 
-			var nameBuf: StringBuf = new StringBuf();
+			var nameBuf:StringBuf = new StringBuf();
 
 			// generate the name according to the format: package1.package2.Class -> package1Package2Class
 			for (i in 0...pack.length) {
@@ -579,7 +582,7 @@ class Macro {
 	 * @param recursive check recursively
 	 * @return true, if it's a subclass, false otherwise
 	 */
-	private static function isSubClass(clazz: ClassType, superClass: ClassType, recursive: Bool): Bool {
+	private static function isSubClass(clazz:ClassType, superClass:ClassType, recursive:Bool):Bool {
 		// check the superclass first
 		if (clazz.superClass != null) {
 			var actualSuperClass = clazz.superClass.t.get();
@@ -613,8 +616,8 @@ class Macro {
 	 * @param types array of types to check
 	 * @return Array<Type>
 	 */
-	private static function getSubClasses(superClass: ClassType, types: Array<Type>, recursive: Bool): Array<Type> {
-		var result: Array<Type> = [];
+	private static function getSubClasses(superClass:ClassType, types:Array<Type>, recursive:Bool):Array<Type> {
+		var result:Array<Type> = [];
 
 		for (type in types) {
 			switch (type) {
@@ -637,7 +640,7 @@ class Macro {
 	 * @param result current array of types
 	 * @return array of types
 	 */
-	private static function getTypesRec(filePath: String, classPath: String, result: Array<Type>): Array<Type> {
+	private static function getTypesRec(filePath:String, classPath:String, result:Array<Type>):Array<Type> {
 		FileSystem.readDirectory(filePath).iter((file) -> {
 			var currentPath = Path.join([filePath, file]);
 			// if current path is a directory, apply getTypesRec to it recursively
@@ -659,7 +662,7 @@ class Macro {
 	 * @param classPath class path as string
 	 * @return array of types
 	 */
-	public static function getTypes(classPath: String): Array<Type> {
+	public static function getTypes(classPath:String):Array<Type> {
 		var filePath = classPath.split(".");
 
 		for (path in Context.getClassPath()) {
