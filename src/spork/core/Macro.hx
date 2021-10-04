@@ -209,24 +209,30 @@ class Macro {
 
 			// if "assignProps" doesn't exist, create it
 			if (!fieldNameMap.exists("assignProps")) {
-				// go through fields of component to find ones with @property
 				var assignExprs: Array<Expr> = [];
 
+				// go through fields of component to find ones with @prop
 				for (field in fields) {
-					var propMeta = field.meta.find((e) -> {
-						return e.name == "property";
-					});
-					if (propMeta != null) {
-						var propName = field.name;
-						var holderPropName: String;
+					// skip if field has no metadata
+					if (field.meta != null) {
+						var propMeta = field.meta.find((e) -> {
+							return e.name == "prop";
+						});
 
-						if (propMeta.params != null && propMeta.params.length > 0) {
-							holderPropName = ExprTools.getValue(propMeta.params[0]);
-						} else {
-							holderPropName = field.name;
+						// if has @prop...
+						if (propMeta != null) {
+							var propName = field.name;
+							var holderPropName: String;
+
+							// try to get the value of metadata, that's the name of property on holder, otherwise name is the same as field name
+							if (propMeta.params != null && propMeta.params.length > 0) {
+								holderPropName = ExprTools.getValue(propMeta.params[0]);
+							} else {
+								holderPropName = field.name;
+							}
+
+							assignExprs.push(macro this.$propName = holder.$holderPropName);
 						}
-
-						assignExprs.push(macro this.$propName = holder.$holderPropName);
 					}
 				}
 
