@@ -4,15 +4,15 @@ import haxe.DynamicAccess;
 import haxe.ds.StringMap;
 
 typedef EntityFactoryMethod = (?assignments: (holder: PropertyHolder) -> Void) -> Entity;
+typedef PropFunc = (PropertyHolder) -> Void;
 
 @:build(spork.core.Macro.buildJsonLoader())
 class JsonLoader {
-
-    public static function loadTemplate(json: EntityDef, templateName: String): EntityTemplate{
-        var jsonComponents = json.components;
+	public static function loadTemplate(json: EntityDef, templateName: String): EntityTemplate {
+		var jsonComponents = json.components;
 		var jsonProps: DynamicAccess<Dynamic> = json.properties;
 		var components: Array<Component> = [];
-		var propFuncs: Array<(PropertyHolder) -> Void> = [];
+		var propFuncs: Array<PropFunc> = [];
 
 		// load properties here
 		for (name in jsonProps.keys()) {
@@ -35,78 +35,20 @@ class JsonLoader {
 			components.push(component);
 		}
 
-        return new EntityTemplate(templateName, components, propFuncs);
-    }
+		return new EntityTemplate(templateName, components, propFuncs);
+	}
 
 	/**
 	 * Creates a fatory method for creating new entities from template
 	 * @param json template as Dynamic object, read from JSON file
 	 * @param templateName name of template
 	 * @return entity creation function
+	 * @deprecated use entities instead
 	 */
 	public static function makeLoader(json: EntityDef, templateName: String): EntityFactoryMethod {
-		var jsonComponents = json.components;
-		var jsonProps: DynamicAccess<Dynamic> = json.properties;
-		var components: Array<Component> = [];
-		var propertyFuncs: Array<(PropertyHolder) -> Void> = [];
+		// load json as template first
+		var template = JsonLoader.loadTemplate(json, templateName);
 
-		// load properties here
-		for (name in jsonProps.keys()) {
-			var factory = JsonLoader.propertyFactories.get(name);
-			if (factory == null) {
-				throw('Unrecognized shared property ${name}');
-			}
-
-			propertyFuncs.push(factory.bind(jsonProps.get(name)));
-		}
-
-		// load components here
-		for (compoJson in jsonComponents) {
-			var factory = JsonLoader.componentFactories.get(compoJson.name);
-			if (factory == null) {
-				throw('Unrecognized component ${compoJson.name}');
-			}
-
-			var component = factory(compoJson.params);
-			components.push(component);
-		}
-
-		// create resulting factory function
-		// assignments is used to assign starting values(e.g. position, etc.) to properties
-		var func = (?assignments: (holder: PropertyHolder) -> Void) -> {
-			// init entity
-			var result = new Entity(templateName);
-
-			// init holder
-			var holder = new PropertyHolder();
-
-			// assign properties to holder
-			for (func in propertyFuncs) {
-				func(holder);
-			}
-
-			// clone components and create properties
-			var clones: Array<Component> = [];
-			for (comp in components) {
-				var clone = comp.clone();
-				clone.createProps(holder);
-				clones.push(clone);
-			}
-
-			// assign values to properties
-			if (assignments != null) {
-				assignments(holder);
-			}
-
-			// assign properties to clones and attach them to entity
-			for (clone in clones) {
-				clone.assignProps(holder);
-				clone.attach(result);
-			}
-
-			return result;
-		};
-
-		return func;
+		return template.make;
 	}
 }
