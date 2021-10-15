@@ -192,6 +192,16 @@ class Macro {
 				fieldNameMap.set(field.name, field);
 			}
 
+			// if "componentType" doesn't exist, create it
+			if (!fieldNameMap.exists("componentType")) {
+            fields.push({
+                name: "componentType",
+                access: [APublic],
+                pos: Context.currentPos(),
+                kind: FProp("default", "never", macro: String, macro $v{clazz.name})
+            });
+        }
+
 			// if "clone" method doesn't exist, create it
 			if (!fieldNameMap.exists("clone")) {
 				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
