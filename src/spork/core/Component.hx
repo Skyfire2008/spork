@@ -6,7 +6,7 @@ package spork.core;
 @:autoBuild(spork.core.Macro.buildComponent())
 interface Component {
 	private var owner: Entity;
-    public var componentType(default, never): String;
+	public var componentType(default, never): ComponentType;
 
 	/**
 	 * Clones this component

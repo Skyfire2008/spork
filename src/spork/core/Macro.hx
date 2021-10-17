@@ -33,6 +33,31 @@ class Macro {
 		componentsClassPaths = paths;
 	}
 
+	public static macro function buildComponentType(): Array<Field> {
+		var componentTypes = getComponentTypes();
+		var fields = Context.getBuildFields();
+
+		for (type in componentTypes) {
+			switch (type) {
+				case TInst(t, _):
+					var clazz = t.get();
+
+					// skip interfaces
+					if (!clazz.isInterface) {
+						var name = getFieldNameFromClass(clazz);
+						fields.push({
+							name: name,
+							kind: FVar(null, macro $v{name}),
+							pos: Context.currentPos()
+						});
+					}
+				default:
+			}
+		}
+
+		return fields;
+	}
+
 	public static macro function buildJsonLoader(): Array<Field> {
 		var componentTypes = getComponentTypes();
 		var fields = Context.getBuildFields();
@@ -194,13 +219,14 @@ class Macro {
 
 			// if "componentType" doesn't exist, create it
 			if (!fieldNameMap.exists("componentType")) {
-            fields.push({
-                name: "componentType",
-                access: [APublic],
-                pos: Context.currentPos(),
-                kind: FProp("default", "never", macro: String, macro $v{clazz.name})
-            });
-        }
+				var componentTypeValue = getFieldNameFromClass(clazz);
+				fields.push({
+					name: "componentType",
+					access: [APublic],
+					pos: Context.currentPos(),
+					kind: FProp("default", "never", macro:spork.core.ComponentType, macro spork.core.ComponentType.$componentTypeValue)
+				});
+			}
 
 			// if "clone" method doesn't exist, create it
 			if (!fieldNameMap.exists("clone")) {

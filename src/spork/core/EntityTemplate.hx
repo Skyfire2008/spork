@@ -3,29 +3,21 @@ package spork.core;
 import spork.core.JsonLoader.PropFunc;
 
 class EntityTemplate {
-	public var name(default, null):String;
-	public var components(default, null):Array<Component>;
-	public var propFuncs(default, null):Array<(PropertyHolder) -> Void>;
+	public var name(default, null): String;
+	public var components(default, null): Array<Component>;
+	public var propFuncs(default, null): Array<(PropertyHolder) -> Void>;
 
-	public function new(name:String, components:Array<Component>, propFuncs:Array<(PropertyHolder) -> Void>) {
+	public function new(name: String, components: Array<Component>, propFuncs: Array<PropFunc>) {
 		this.name = name;
 		this.components = components;
 		this.propFuncs = propFuncs;
 	}
 
-	public function addComponent(component:Component) {
-		components.push(component);
-	}
-
-	public function addPropFunc(propFunc:PropFunc) {
-		propFuncs.push(propFunc);
-	}
-
-	public function augment(name:String, components:Array<Component>, propFuncs:Array<PropFunc>):EntityTemplate {
+	public function augment(name: String, components: Array<Component>, propFuncs: Array<PropFunc>): EntityTemplate {
 		return new EntityTemplate(name, this.components.concat(components), this.propFuncs.concat(propFuncs));
 	}
 
-	public function make(?assignments:(holder:PropertyHolder) -> Void):Entity {
+	public function make(?assignments: (holder: PropertyHolder) -> Void): Entity {
 		// init entity
 		var result = new Entity(name);
 
@@ -38,7 +30,7 @@ class EntityTemplate {
 		}
 
 		// clone components and create properties
-		var clones:Array<Component> = [];
+		var clones: Array<Component> = [];
 		for (comp in components) {
 			var clone = comp.clone();
 			clone.createProps(holder);
