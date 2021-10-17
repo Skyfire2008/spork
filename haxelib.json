@@ -8,11 +8,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.8.0",
+	"version": "0.9.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Changed 'components' property of JSON template from object to array, allowing multiple components of the same type."
+	"releasenote": "Added shared properties back. Added macro to autogenerate 'owner' and 'assignProperties(...)' for entities. Added template names for entities to simplify debuging. Added entity templates. Added ComponentType enum to components to tell them apart without resorting to reflection."
 }
