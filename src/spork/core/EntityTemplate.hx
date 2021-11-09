@@ -2,6 +2,8 @@ package spork.core;
 
 import spork.core.JsonLoader.PropFunc;
 
+using Lambda;
+
 class EntityTemplate {
 	public var name(default, null): String;
 	public var components(default, null): Array<Component>;
@@ -14,7 +16,10 @@ class EntityTemplate {
 	}
 
 	public function augment(name: String, components: Array<Component>, propFuncs: Array<PropFunc>): EntityTemplate {
-		return new EntityTemplate(name, this.components.concat(components), this.propFuncs.concat(propFuncs));
+		var newComponents = this.components.concat(components);
+		return new EntityTemplate(name, newComponents.map((c) -> {
+			return c.clone();
+		}), this.propFuncs.concat(propFuncs));
 	}
 
 	public function make(?assignments: (holder: PropertyHolder) -> Void): Entity {

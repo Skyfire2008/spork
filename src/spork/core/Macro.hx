@@ -115,7 +115,21 @@ class Macro {
 		});
 
 		// add propFactories map
-		var makePropFactory = (type: Type, propName: String) -> {
+		var makePropFactory = (field: ClassField) -> {
+			var type = field.type;
+			var propName = field.name;
+
+			// check if field has a "fromJson" metadata, in which case just create a function with a call to method inside it
+			var meta = field.meta.extract("fromJson");
+			if (meta.length > 0 && meta[0].params.length > 0) {
+				var funcName: String = ExprTools.getValue(meta[0].params[0]);
+				var path = funcName.split("."); // split full method name at "." so that it could be used by $p{...}
+				return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
+					holder.$propName = $p{path}(json);
+				};
+			}
+
+			// otherwise, call property class'es fromJson
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
@@ -147,7 +161,7 @@ class Macro {
 
 		var holderClassFields = TypeTools.getClass(Context.getType(holderClassName)).fields.get();
 		for (field in holderClassFields) {
-			var current = makePropFactory(field.type, field.name);
+			var current = makePropFactory(field);
 			if (current != null) {
 				propMapDecl.push(current);
 			}
@@ -645,7 +659,7 @@ class Macro {
 
 	/**
 	 * Gets subclasses of a given superclass from an array of types
-	 * @param superClass cuperclass class type
+	 * @param superClass superclass class type
 	 * @param types array of types to check
 	 * @return Array<Type>
 	 */
