@@ -124,6 +124,7 @@ class Macro {
 			if (meta.length > 0 && meta[0].params.length > 0) {
 				var funcName: String = ExprTools.getValue(meta[0].params[0]);
 				var path = funcName.split("."); // split full method name at "." so that it could be used by $p{...}
+				trace(propName);
 				return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
 					holder.$propName = $p{path}(json);
 				};
@@ -499,7 +500,7 @@ class Macro {
 		};
 	}
 
-	private static inline function makeTypePath(clazz: BaseType): TypePath {
+	public static inline function makeTypePath(clazz: BaseType): TypePath {
 		var result: TypePath = {name: clazz.name, pack: clazz.pack};
 		var module = clazz.module.substring(clazz.module.lastIndexOf(".") + 1);
 		if (clazz.name != module) { // for sub-types, typepath name is set to module name, and sub is set to actual type name
