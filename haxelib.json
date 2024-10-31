@@ -2,7 +2,6 @@
 	"name": "Spork",
 	"url": "https://github.com/Skyfire2008/spork",
 	"tags": [
-		"ecs",
 		"entity",
 		"component",
 		"framework"
@@ -14,5 +13,5 @@
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Added shared properties back. Added macro to autogenerate 'owner' and 'assignProperties(...)' for entities. Added template names for entities to simplify debuging. Added entity templates. Added ComponentType enum to components to tell them apart without resorting to reflection."
+	"releasenote": "Added shared properties back. \nAdded macro to autogenerate 'owner' and 'assignProperties(...)' for entities. \nAdded template names for entities to simplify debuging. \nAdded entity templates. \nAdded ComponentType enum to components to tell them apart without resorting to reflection. \nStarted working on object pools for entities and components."
 }

@@ -111,7 +111,7 @@ class Macro {
 			name: "componentFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap<(Dynamic) -> spork.core.Component>, composExpr)
+			kind: FVar(macro : haxe.ds.StringMap<(Dynamic) -> spork.core.Component>, composExpr)
 		});
 
 		// add propFactories map
@@ -183,7 +183,7 @@ class Macro {
 			name: "propertyFactories",
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
-			kind: FVar(macro:haxe.ds.StringMap<(Dynamic, spork.core.PropertyHolder) -> Void>, propsExpr)
+			kind: FVar(macro : haxe.ds.StringMap<(Dynamic, spork.core.PropertyHolder) -> Void>, propsExpr)
 		});
 
 		return fields;
@@ -239,7 +239,7 @@ class Macro {
 					name: "componentType",
 					access: [APublic],
 					pos: Context.currentPos(),
-					kind: FProp("default", "never", macro:spork.core.ComponentType, macro spork.core.ComponentType.$componentTypeValue)
+					kind: FProp("default", "never", macro : spork.core.ComponentType, macro spork.core.ComponentType.$componentTypeValue)
 				});
 			}
 
@@ -254,7 +254,7 @@ class Macro {
 					name: "owner",
 					access: [APrivate],
 					pos: Context.currentPos(),
-					kind: FVar(macro:spork.core.Entity, macro null)
+					kind: FVar(macro : spork.core.Entity, macro null)
 				});
 			}
 
@@ -292,7 +292,7 @@ class Macro {
 					access: [APublic],
 					pos: Context.currentPos(),
 					kind: FFun({
-						args: [{name: "holder", type: macro:spork.core.PropertyHolder}],
+						args: [{name: "holder", type: macro : spork.core.PropertyHolder}],
 						ret: null,
 						expr: macro $b{assignExprs}
 					})
@@ -306,8 +306,8 @@ class Macro {
 					access: [APublic],
 					pos: Context.currentPos(),
 					kind: FFun({
-						args: [{name: "holder", type: macro:spork.core.PropertyHolder}],
-						ret: macro:Void,
+						args: [{name: "holder", type: macro : spork.core.PropertyHolder}],
+						ret: macro : Void,
 						expr: macro {}
 					})
 				});
@@ -357,8 +357,8 @@ class Macro {
 					access: [APublic],
 					pos: Context.currentPos(),
 					kind: FFun({
-						args: [{name: "owner", type: macro:spork.core.Entity}],
-						ret: macro:Void,
+						args: [{name: "owner", type: macro : spork.core.Entity}],
+						ret: macro : Void,
 						expr: macro $b{exprs}
 					})
 				});
@@ -379,7 +379,7 @@ class Macro {
 			switch (type) {
 				case TInst(t, _):
 					var clazz = t.get();
-					trace(clazz.name);
+					// trace(clazz.name);
 
 					// only process interfaces
 					if (clazz.isInterface) {
@@ -460,7 +460,7 @@ class Macro {
 			access: [APublic, AStatic],
 			pos: Context.currentPos(),
 			kind: FFun({
-				args: [{name: "json", type: macro:Dynamic}],
+				args: [{name: "json", type: macro : Dynamic}],
 				ret: TPath(classPath),
 				expr: funcExpr
 			})
