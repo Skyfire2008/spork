@@ -3,7 +3,7 @@ package spork.core;
 /**
  * Helper class to store shared properties when creating a new entity
  */
-@:build(spork.core.Macro.buildPropHolder())
+@:build(spork.macro.PropertyHolderMacro.build())
 class PropertyHolder {
 	public function new() {}
 }

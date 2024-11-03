@@ -1,13 +1,10 @@
 package spork.core;
 
-import haxe.macro.ComplexTypeTools;
-import haxe.macro.Printer;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.Context;
 import haxe.macro.TypeTools;
 import haxe.macro.ExprTools;
-import haxe.ds.StringMap;
 
 import sys.FileSystem;
 
@@ -16,10 +13,15 @@ import haxe.io.Path;
 using Lambda;
 
 class Macro {
-	private static var componentsClassPaths: Array<String> = [];
+	public static var componentsClassPaths(default, null): Array<String> = [];
 	private static var componentTypes: Array<Type> = null;
 	private static var isNamingLong: Bool = false;
-	private static var holderClassName: String;
+	public static var holderClassName(default, null): String;
+	private static var objectPoolsEnabled = false;
+
+	public static macro function useObjectPool(): Void {
+		objectPoolsEnabled = true;
+	}
 
 	public static macro function setPropertyHolder(className: String): Void {
 		holderClassName = className;
@@ -33,407 +35,8 @@ class Macro {
 		componentsClassPaths = paths;
 	}
 
-	public static macro function buildComponentType(): Array<Field> {
-		var componentTypes = getComponentTypes();
-		var fields = Context.getBuildFields();
-
-		for (type in componentTypes) {
-			switch (type) {
-				case TInst(t, _):
-					var clazz = t.get();
-
-					// skip interfaces
-					if (!clazz.isInterface) {
-						var name = getFieldNameFromClass(clazz);
-						fields.push({
-							name: name,
-							kind: FVar(null, macro $v{name}),
-							pos: Context.currentPos()
-						});
-					}
-				default:
-			}
-		}
-
-		return fields;
-	}
-
-	public static macro function buildJsonLoader(): Array<Field> {
-		var componentTypes = getComponentTypes();
-		var fields = Context.getBuildFields();
-		var propMapDecl: Array<Expr> = [];
-		var componentMapDecl: Array<Expr> = [];
-		var propMapDecl: Array<Expr> = [];
-
-		var makeComponentFactory = (type: Type) -> {
-			switch (type) {
-				case TInst(t, _):
-					var clazz = t.get();
-
-					// skip interfaces
-					if (clazz.isInterface) {
-						return null;
-					}
-
-					var typePath = makeTypePath(clazz);
-					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{getFieldNameFromClass(clazz)} => (json: Dynamic) -> {
-						// generate ident expression from typepath, taking modules into account
-						return $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
-					};
-
-				default:
-			}
-			return null;
-		}
-
-		// for every component type create a factory
-		for (type in componentTypes) {
-			var current = makeComponentFactory(type);
-			if (current != null) {
-				componentMapDecl.push(current);
-			}
-		}
-
-		// if components available, generate expr, otherwise just create a new StringMap
-		var composExpr: Expr = null;
-		if (componentMapDecl.length > 0) {
-			composExpr = {
-				pos: Context.currentPos(),
-				expr: EArrayDecl(componentMapDecl)
-			};
-		} else {
-			composExpr = macro new haxe.ds.StringMap<(Dynamic) -> spork.core.Component>();
-		}
-
-		// add componentFactories field
-		fields.push({
-			name: "componentFactories",
-			access: [APublic, AStatic],
-			pos: Context.currentPos(),
-			kind: FVar(macro : haxe.ds.StringMap<(Dynamic) -> spork.core.Component>, composExpr)
-		});
-
-		// add propFactories map
-		var makePropFactory = (field: ClassField) -> {
-			var type = field.type;
-			var propName = field.name;
-
-			// check if field has a "fromJson" metadata, in which case just create a function with a call to method inside it
-			var meta = field.meta.extract("fromJson");
-			if (meta.length > 0 && meta[0].params.length > 0) {
-				var funcName: String = ExprTools.getValue(meta[0].params[0]);
-				var path = funcName.split("."); // split full method name at "." so that it could be used by $p{...}
-				trace(propName);
-				return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
-					holder.$propName = $p{path}(json);
-				};
-			}
-
-			// otherwise, call property class'es fromJson
-			switch (type) {
-				case TInst(t, _):
-					var clazz = t.get();
-
-					// skip interfaces
-					if (clazz.isInterface) {
-						return null;
-					}
-
-					var typePath = makeTypePath(clazz);
-					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
-						// holder.{propName} = {typePath}.fromJson(json)
-						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
-					};
-				case TAbstract(t, _):
-					var abztract = t.get();
-
-					var typePath = makeTypePath(abztract);
-					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
-						// holder.{propName} = {typePath}.fromJson(json)
-						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
-					};
-				default:
-			}
-			return null;
-		};
-
-		var holderClassFields = TypeTools.getClass(Context.getType(holderClassName)).fields.get();
-		for (field in holderClassFields) {
-			var current = makePropFactory(field);
-			if (current != null) {
-				propMapDecl.push(current);
-			}
-		}
-
-		var propsExpr: Expr = null;
-		if (propMapDecl.length > 0) {
-			propsExpr = {
-				pos: Context.currentPos(),
-				expr: EArrayDecl(propMapDecl)
-			};
-		} else {
-			// if no components available, just create a new StringMap
-			propsExpr = macro new haxe.ds.StringMap<(Dynamic, spork.core.PropertyHolder) -> Void>();
-		}
-
-		fields.push({
-			name: "propertyFactories",
-			access: [APublic, AStatic],
-			pos: Context.currentPos(),
-			kind: FVar(macro : haxe.ds.StringMap<(Dynamic, spork.core.PropertyHolder) -> Void>, propsExpr)
-		});
-
-		return fields;
-	}
-
-	public static macro function buildPropHolder(): Array<Field> {
-		var fields = Context.getBuildFields();
-
-		var classFields = TypeTools.getClass(Context.getType(holderClassName)).fields.get();
-		for (field in classFields) {
-			@:privateAccess
-			fields.push(TypeTools.toField(field));
-		}
-
-		return fields;
-	}
-
-	public static macro function buildProperty(): Array<Field> {
-		var clazz = Context.getLocalClass().get();
-		var fields = Context.getBuildFields();
-
-		// skip interfaces
-		if (!clazz.isInterface) {
-			// add "fromJson" if it's missing
-			if (!fields.exists((item) -> {
-				return item.name == "fromJson";
-			})) {
-				fields.push(makeFromJsonMethod(fields.find((item) -> {
-					return item.name == "new";
-				}), clazz));
-			}
-		}
-
-		return fields;
-	}
-
-	public static macro function buildComponent(): Array<Field> {
-		var fields = Context.getBuildFields();
-		var clazz = Context.getLocalClass().get();
-
-		// skip interfaces
-		if (!clazz.isInterface) {
-			// put all fields into a map
-			var fieldNameMap: StringMap<Field> = new StringMap<Field>();
-			for (field in fields) {
-				fieldNameMap.set(field.name, field);
-			}
-
-			// if "componentType" doesn't exist, create it
-			if (!fieldNameMap.exists("componentType")) {
-				var componentTypeValue = getFieldNameFromClass(clazz);
-				fields.push({
-					name: "componentType",
-					access: [APublic],
-					pos: Context.currentPos(),
-					kind: FProp("default", "never", macro : spork.core.ComponentType, macro spork.core.ComponentType.$componentTypeValue)
-				});
-			}
-
-			// if "clone" method doesn't exist, create it
-			if (!fieldNameMap.exists("clone")) {
-				fields.push(makeCloneMethod(fieldNameMap.get("new"), clazz));
-			}
-
-			// if "owner" doesn't exist, create it
-			if (!fieldNameMap.exists("owner")) {
-				fields.push({
-					name: "owner",
-					access: [APrivate],
-					pos: Context.currentPos(),
-					kind: FVar(macro : spork.core.Entity, macro null)
-				});
-			}
-
-			// if "assignProps" doesn't exist, create it
-			if (!fieldNameMap.exists("assignProps")) {
-				var assignExprs: Array<Expr> = [];
-
-				// go through fields of component to find ones with @prop
-				for (field in fields) {
-					// skip if field has no metadata
-					if (field.meta != null) {
-						var propMeta = field.meta.find((e) -> {
-							return e.name == "prop";
-						});
-
-						// if has @prop...
-						if (propMeta != null) {
-							var propName = field.name;
-							var holderPropName: String;
-
-							// try to get the value of metadata, that's the name of property on holder, otherwise name is the same as field name
-							if (propMeta.params != null && propMeta.params.length > 0) {
-								holderPropName = ExprTools.getValue(propMeta.params[0]);
-							} else {
-								holderPropName = field.name;
-							}
-
-							assignExprs.push(macro this.$propName = holder.$holderPropName);
-						}
-					}
-				}
-
-				fields.push({
-					name: "assignProps",
-					access: [APublic],
-					pos: Context.currentPos(),
-					kind: FFun({
-						args: [{name: "holder", type: macro : spork.core.PropertyHolder}],
-						ret: null,
-						expr: macro $b{assignExprs}
-					})
-				});
-			}
-
-			// if "createProps" doesn't exist, create it
-			if (!fieldNameMap.exists("createProps")) {
-				fields.push({
-					name: "createProps",
-					access: [APublic],
-					pos: Context.currentPos(),
-					kind: FFun({
-						args: [{name: "holder", type: macro : spork.core.PropertyHolder}],
-						ret: macro : Void,
-						expr: macro {}
-					})
-				});
-			}
-
-			// if "fromJson" doesn't exist, create it
-			if (!fieldNameMap.exists("fromJson")) {
-				fields.push(makeFromJsonMethod(fieldNameMap.get("new"), clazz));
-			}
-
-			// if "attach" doesn't exist, create it
-			if (!fieldNameMap.exists("attach")) {
-				var exprs: Array<Expr> = [];
-				// add owner assignment
-				exprs.push(macro this.owner = owner);
-
-				// for every interface implemented by this component...
-				var componentClass = TypeTools.getClass(Context.getType("spork.core.Component"));
-				for (foobar in clazz.interfaces) {
-					var interfaze = foobar.t.get();
-					// only process interfaces extending Component
-					if (isSubClass(interfaze, componentClass, false)) {
-						// get name for component array
-						var entry = interfaze.meta.extract("name");
-						var params = entry.length > 0 ? entry[0].params : [];
-						var componentFieldName: String;
-
-						if (params.length > 0) {
-							componentFieldName = ExprTools.getValue(params[0]);
-						} else {
-							componentFieldName = (interfaze.name.charAt(0)).toLowerCase() + interfaze.name.substring(1);
-						}
-
-						// if component is singular, assign this as its value
-						if (interfaze.meta.has("singular")) {
-							exprs.push(macro owner.$componentFieldName = this);
-						} else {
-							// otherwise, push the component into the array
-							componentFieldName += "s";
-							exprs.push(macro owner.$componentFieldName.push(this));
-						}
-					}
-				}
-
-				fields.push({
-					name: "attach",
-					access: [APublic],
-					pos: Context.currentPos(),
-					kind: FFun({
-						args: [{name: "owner", type: macro : spork.core.Entity}],
-						ret: macro : Void,
-						expr: macro $b{exprs}
-					})
-				});
-			}
-		}
-
-		return fields;
-	}
-
-	public static macro function buildEntity(): Array<Field> {
-		var fields = Context.getBuildFields();
-		var compoTypes: Array<Type> = [];
-
-		for (path in componentsClassPaths) {
-			compoTypes = getComponentTypes();
-		}
-		for (type in compoTypes) {
-			switch (type) {
-				case TInst(t, _):
-					var clazz = t.get();
-					// trace(clazz.name);
-
-					// only process interfaces
-					if (clazz.isInterface) {
-						var fieldName = "";
-						var entry = clazz.meta.extract("name");
-						var params = entry.length > 0 ? entry[0].params : [];
-
-						// get name for component array
-						if (params.length > 0) {
-							fieldName = ExprTools.getValue(params[0]);
-						} else {
-							fieldName = (clazz.name.charAt(0)).toLowerCase() + clazz.name.substring(1);
-						}
-
-						var field: Field = null;
-						var isSingular: Bool = false;
-						if (clazz.meta.has("singular")) {
-							isSingular = true;
-							// if singular, add a field of given component type
-							field = {
-								name: fieldName,
-								access: [APublic],
-								pos: Context.currentPos(),
-								kind: FieldType.FVar(TypeTools.toComplexType(type))
-							};
-						} else {
-							// otherwise add component array field
-							fieldName = fieldName + "s";
-							field = {
-								name: fieldName,
-								access: [APublic],
-								pos: Context.currentPos(),
-								kind: FieldType.FVar(TPath({name: "Array", pack: [], params: [TPType(TypeTools.toComplexType(type))]}), macro [])
-							};
-						}
-
-						fields.push(field);
-
-						// add callback method
-						for (classField in clazz.fields.get()) {
-							if (classField.meta.has("callback")) {
-								fields.push(makeEntityCallback(classField, fieldName, isSingular));
-							}
-						}
-					}
-				default:
-			}
-		}
-
-		return fields;
-	}
-
 	#if macro
-	private static function makeFromJsonMethod(constructor: Field, clazz: ClassType): Field {
+	public static function makeFromJsonMethod(constructor: Field, clazz: ClassType): Field {
 		// check that constructor exists
 		if (constructor == null) {
 			Context.error('Class ${clazz.name} has no constructor, cannot create static method "fromJson"', Context.currentPos());
@@ -467,7 +70,7 @@ class Macro {
 		};
 	}
 
-	private static inline function makeCloneMethod(constructor: Field, clazz: ClassType): Field {
+	public static inline function makeCloneMethod(constructor: Field, clazz: ClassType): Field {
 		// check that constructor exists
 		if (constructor == null) {
 			Context.error('Class ${clazz.name} has no constructor, cannot create method "clone"', Context.currentPos());
@@ -514,7 +117,7 @@ class Macro {
 	/**
 	 * Retrieves the array of types implementing Component
 	 */
-	private static inline function getComponentTypes(): Array<Type> {
+	public static inline function getComponentTypes(): Array<Type> {
 		if (componentTypes == null) {
 			var componentClass = TypeTools.getClass(Context.getType("spork.core.Component"));
 			componentTypes = [];
@@ -533,7 +136,7 @@ class Macro {
 	 * @param arrayName
 	 * @return Field
 	 */
-	private static function makeEntityCallback(callbackField: ClassField, fieldName: String, isSingular: Bool): Field {
+	public static function makeEntityCallback(callbackField: ClassField, fieldName: String, isSingular: Bool): Field {
 		var methodName = callbackField.name;
 		var argDefs;
 		var retType: Type;
@@ -588,7 +191,7 @@ class Macro {
 	 * @param clazz
 	 * @return String
 	 */
-	private static inline function getFieldNameFromClass(clazz: ClassType): String {
+	public static inline function getFieldNameFromClass(clazz: ClassType): String {
 		var meta = clazz.meta.extract("name");
 		var fieldName: String;
 
@@ -624,13 +227,13 @@ class Macro {
 	}
 
 	/**
-	 * Check if given class type etends or implements another one
+	 * Check if given class type extends or implements another one
 	 * @param clazz class type to check
 	 * @param superClass super class
 	 * @param recursive check recursively
 	 * @return true, if it's a subclass, false otherwise
 	 */
-	private static function isSubClass(clazz: ClassType, superClass: ClassType, recursive: Bool): Bool {
+	public static function isSubClass(clazz: ClassType, superClass: ClassType, recursive: Bool): Bool {
 		// check the superclass first
 		if (clazz.superClass != null) {
 			var actualSuperClass = clazz.superClass.t.get();

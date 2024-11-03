@@ -7,11 +7,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.9.0",
+	"version": "0.9.1",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Added shared properties back. \nAdded macro to autogenerate 'owner' and 'assignProperties(...)' for entities. \nAdded template names for entities to simplify debuging. \nAdded entity templates. \nAdded ComponentType enum to components to tell them apart without resorting to reflection. \nStarted working on object pools for entities and components."
+	"releasenote": "Added support for custom 'fromJson(...)' methods for shared properties. \nStarted working on object pools for entities and components. Split Macro into separate subclasses."
 }

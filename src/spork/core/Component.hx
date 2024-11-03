@@ -3,7 +3,7 @@ package spork.core;
 /**
  * Component, defines new behaviour for entities
  */
-@:autoBuild(spork.core.Macro.buildComponent())
+@:autoBuild(spork.macro.ComponentMacro.build())
 interface Component {
 	private var owner: Entity;
 	public var componentType(default, never): ComponentType;

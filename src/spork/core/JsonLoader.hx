@@ -6,7 +6,7 @@ import haxe.ds.StringMap;
 typedef EntityFactoryMethod = (?assignments: (holder: PropertyHolder) -> Void) -> Entity;
 typedef PropFunc = (PropertyHolder) -> Void;
 
-@:build(spork.core.Macro.buildJsonLoader())
+@:build(spork.macro.JsonLoaderMacro.build())
 class JsonLoader {
 	public static function loadTemplate(json: EntityDef, templateName: String): EntityTemplate {
 		var jsonComponents = json.components;

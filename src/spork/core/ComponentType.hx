@@ -1,5 +1,4 @@
 package spork.core;
 
-@:build(spork.core.Macro.buildComponentType())
-@:enum
-abstract ComponentType(String) {}
+@:build(spork.macro.ComponentTypeMacro.build())
+enum abstract ComponentType(String) {}

@@ -1,6 +1,6 @@
 package spork.core;
 
-@:build(spork.core.Macro.buildEntity())
+@:build(spork.macro.EntityMacro.build())
 class Entity {
 	private static var currentId: Int = 0;
 	public var id(default, null): Int;

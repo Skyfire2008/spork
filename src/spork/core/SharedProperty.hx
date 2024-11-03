@@ -1,4 +1,4 @@
 package spork.core;
 
-@:autoBuild(spork.core.Macro.buildProperty())
+@:autoBuild(spork.macro.SharedPropertyMacro.build())
 interface SharedProperty {}
