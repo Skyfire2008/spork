@@ -4,6 +4,9 @@ import spork.core.JsonLoader.PropFunc;
 
 using Lambda;
 
+/**
+ * Contains instructions to make entities, loaded from JSON files
+ */
 class EntityTemplate {
 	public var name(default, null): String;
 	public var components(default, null): Array<Component>;
@@ -15,6 +18,13 @@ class EntityTemplate {
 		this.propFuncs = propFuncs;
 	}
 
+	/**
+	 * Adds new components and property functions to an existing template
+	 * @param name 			name of new template
+	 * @param components 	array of new components
+	 * @param propFuncs 	array of new property functions
+	 * @return EntityTemplate
+	 */
 	public function augment(name: String, components: Array<Component>, propFuncs: Array<PropFunc>): EntityTemplate {
 		var newComponents = this.components.concat(components);
 		return new EntityTemplate(name, newComponents.map((c) -> {
@@ -22,6 +32,12 @@ class EntityTemplate {
 		}), this.propFuncs.concat(propFuncs));
 	}
 
+	/**
+	 * Create  a new entity from this template
+	 * @param assignments 	functions assigning values to properties 
+	 * @return Entity
+	 */
+	// TODO: poolable entity and holder
 	public function make(?assignments: (holder: PropertyHolder) -> Void): Entity {
 		// init entity
 		var result = new Entity(name);

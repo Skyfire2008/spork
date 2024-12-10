@@ -1,4 +1,6 @@
-package spork.core;
+package spork.util;
+
+import spork.core.SharedProperty;
 
 /**
  * Provides wrapping for shared properties of basic types(Int, Float, etc.)

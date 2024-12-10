@@ -10,6 +10,9 @@ class PropertyHolderMacro {
 	public static macro function build(): Array<Field> {
 		var fields = Context.getBuildFields();
 
+		if (Macro.holderClassName == null) {
+			Context.error("No property holder class specified", Context.currentPos());
+		}
 		var classFields = TypeTools.getClass(Context.getType(Macro.holderClassName)).fields.get();
 		for (field in classFields) {
 			@:privateAccess

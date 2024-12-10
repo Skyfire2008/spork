@@ -1,11 +1,13 @@
 package spork.core;
 
+import haxe.CallStack;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 import haxe.macro.Context;
 import haxe.macro.TypeTools;
 import haxe.macro.ExprTools;
 
+import sys.thread.Thread;
 import sys.FileSystem;
 
 import haxe.io.Path;
@@ -33,6 +35,12 @@ class Macro {
 
 	public static macro function setComponentsClassPath(paths: Array<String>): Void {
 		componentsClassPaths = paths;
+	}
+
+	public static macro function populateComponentTypeArray(): Void {
+		Context.onAfterInitMacros(() -> {
+			getComponentTypes();
+		});
 	}
 
 	#if macro
@@ -117,16 +125,19 @@ class Macro {
 	/**
 	 * Retrieves the array of types implementing Component
 	 */
-	public static inline function getComponentTypes(): Array<Type> {
+	public static function getComponentTypes(): Array<Type> {
 		if (componentTypes == null) {
 			var componentClass = TypeTools.getClass(Context.getType("spork.core.Component"));
-			componentTypes = [];
 
+			var result: Array<Type> = [];
 			for (path in componentsClassPaths) {
-				componentTypes = componentTypes.concat(getSubClasses(componentClass, getTypes(path), true));
+				for (type in getSubClasses(componentClass, getTypes(path), true)) {
+					result.push(type);
+				}
 			}
-		}
 
+			componentTypes = result;
+		}
 		return componentTypes;
 	}
 
@@ -273,7 +284,7 @@ class Macro {
 		for (type in types) {
 			switch (type) {
 				case TInst(t, _):
-					var clazz = t.get();
+					var clazz = t.get(); // <<< here, tries to construct component types
 					if (isSubClass(clazz, superClass, recursive)) {
 						result.push(type);
 					}

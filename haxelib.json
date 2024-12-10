@@ -7,11 +7,11 @@
 		"framework"
 	],
 	"description": "Minimalistic component framework",
-	"version": "0.9.1",
+	"version": "0.10.0",
 	"classPath": "src/",
 	"license": "MIT",
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Added support for custom 'fromJson(...)' methods for shared properties. \nStarted working on object pools for entities and components. Split Macro into separate subclasses."
+	"releasenote": "Moved Wrapper to util folder.\n Poolable and component macro interaction.\n"
 }
