@@ -37,10 +37,11 @@ class EntityTemplate {
 	 * @param assignments 	functions assigning values to properties 
 	 * @return Entity
 	 */
-	// TODO: poolable entity and holder
+	// TODO: poolable holder
 	public function make(?assignments: (holder: PropertyHolder) -> Void): Entity {
 		// init entity
-		var result = new Entity(name);
+		var result: Entity;
+		Macro.getEntity(result, name);
 
 		// init holder
 		var holder = new PropertyHolder();

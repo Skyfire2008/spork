@@ -19,9 +19,9 @@ class Macro {
 	private static var componentTypes: Array<Type> = null;
 	private static var isNamingLong: Bool = false;
 	public static var holderClassName(default, null): String;
-	private static var objectPoolsEnabled = false;
+	public static var objectPoolsEnabled(default, null) = false;
 
-	public static macro function useObjectPool(): Void {
+	public static macro function useObjectPools(): Void {
 		objectPoolsEnabled = true;
 	}
 
@@ -41,6 +41,23 @@ class Macro {
 		Context.onAfterInitMacros(() -> {
 			getComponentTypes();
 		});
+	}
+
+	/**
+	 * Provides an expression fetching an entity, either new or from the entity object pool based on settings
+	 * @param entVar 		entity variable
+	 * @param templateName 	template name
+	 * @return Expr
+	 */
+	public static macro function getEntity(entVar: Expr, templateName: ExprOf<String>): Expr {
+		if (objectPoolsEnabled) {
+			var exprs: Array<Expr> = [];
+			exprs.push(macro $e{entVar} = Entity.getItem());
+			exprs.push(macro $e{entVar}.setParams($e{templateName}));
+			return macro $b{exprs};
+		} else {
+			return macro ${entVar} = new Entity($e{templateName});
+		}
 	}
 
 	#if macro
