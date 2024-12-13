@@ -61,6 +61,64 @@ class Macro {
 	}
 
 	#if macro
+	/**
+	 * Finds a given field in a given type, similarly to TypeTools.findField(...)
+	 * @param type 			type to find the field in
+	 * @param fieldName 	name of field to find
+	 * @param isStatic 		true if field is static
+	 * @return 				class field if found
+	 */
+	public static function findField(type: Type, fieldName: String, isStatic: Bool): Null<ClassField> {
+		// if not found, search in uderlying type
+		switch (type) {
+			case TMono(t):
+				var mono = t.get();
+				if (mono != null) {
+					return findField(mono, fieldName, isStatic);
+				}
+
+			case TInst(t, _):
+				return TypeTools.findField(t.get(), fieldName, isStatic);
+
+			case TType(t, _):
+				return findField(t.get().type, fieldName, isStatic);
+
+			case TAnonymous(t):
+				if (isStatic) {
+					// anonymous type cannot have static fields
+					return null;
+				}
+				var fields = t.get().fields;
+				var field = fields.find(field -> field.name == fieldName);
+				return field;
+
+			case TAbstract(t, _):
+				var abztract = t.get();
+
+				// first, try to find the field in implementing type
+				if (abztract.impl != null) {
+					var impl = abztract.impl.get();
+					var field = TypeTools.findField(impl, fieldName, isStatic);
+
+					if (field != null) {
+						return field;
+					}
+				}
+
+				// if still not found, process the underlying type recursively
+				findField(abztract.type, fieldName, isStatic);
+			default:
+		}
+
+		return null;
+	}
+
+	/**
+	 * Makes a fromJson(...) method using class's constructor
+	 * @param constructor 	constructor
+	 * @param clazz 		class of object to be constructed
+	 * @return 				public static function fromJson(...)
+	 */
 	public static function makeFromJsonMethod(constructor: Field, clazz: ClassType): Field {
 		// check that constructor exists
 		if (constructor == null) {
@@ -215,7 +273,7 @@ class Macro {
 	}
 
 	/**
-	 * Generats name for a field containg an instance of given class
+	 * Generates name for a field containg an instance of given class
 	 * @param clazz
 	 * @return String
 	 */

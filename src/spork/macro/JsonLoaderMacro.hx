@@ -8,6 +8,8 @@ import haxe.macro.TypeTools;
 
 import spork.core.Macro;
 
+using Lambda;
+
 class JsonLoaderMacro {
 	public static macro function build(): Array<Field> {
 		var componentTypes = Macro.getComponentTypes();
@@ -65,7 +67,7 @@ class JsonLoaderMacro {
 			kind: FVar(macro : haxe.ds.StringMap<(Dynamic) -> spork.core.Component>, composExpr)
 		});
 
-		// add propFactories map
+		// creates a mapping propName => function that gets it from json
 		var makePropFactory = (field: ClassField) -> {
 			var type = field.type;
 			var propName = field.name;
@@ -81,36 +83,36 @@ class JsonLoaderMacro {
 				};
 			}
 
-			// otherwise, call property class'es fromJson
-			switch (type) {
-				case TInst(t, _):
-					var clazz = t.get();
+			// otherwise, check if field's type has a fromJson(...) method
+			var fromJsonField = Macro.findField(type, "fromJson", true);
+			if (fromJsonField == null) {
+				Context.error('${field.name} needs a static method fromJson(...) or a metadata @fromJson(...) to read it from json', field.pos);
+			} else {
+				// get the base type
+				var baseType: BaseType;
+				switch (type) { // INFO: what about other types?
+					case TInst(t, _):
+						baseType = t.get();
+					case TType(t, _):
+						baseType = t.get();
+					case TAbstract(t, _):
+						baseType = t.get();
+					default:
+						Context.error('Cannot call fromJson for type ${TypeTools.toString(type)}', field.pos);
+				}
 
-					// skip interfaces
-					if (clazz.isInterface) {
-						return null;
-					}
-
-					var typePath = Macro.makeTypePath(clazz);
-					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
-						// holder.{propName} = {typePath}.fromJson(json)
-						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
-					};
-				case TAbstract(t, _):
-					var abztract = t.get();
-
-					var typePath = Macro.makeTypePath(abztract);
-					// make a mapping from field name to factory method, calling type's "fromJson(...)"
-					return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
-						// holder.{propName} = {typePath}.fromJson(json)
-						holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
-					};
-				default:
+				var typePath = Macro.makeTypePath(baseType);
+				// make a mapping from field name to factory method, calling type's "fromJson(...)"
+				return macro $v{propName} => (json: Dynamic, holder: spork.core.PropertyHolder) -> {
+					// holder.{propName} = {typePath}.fromJson(json)
+					holder.$propName = $p{typePath.pack.concat(typePath.sub != null ? [typePath.name, typePath.sub] : [typePath.name])}.fromJson(json);
+				};
 			}
+
 			return null;
 		};
 
+		// add propFactories map
 		var holderClassFields = TypeTools.getClass(Context.getType(Macro.holderClassName)).fields.get();
 		for (field in holderClassFields) {
 			var current = makePropFactory(field);
