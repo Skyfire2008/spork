@@ -13,5 +13,5 @@
 	"contributors": [
 		"SkyFire2008"
 	],
-	"releasenote": "Moved Wrapper to util folder.\n Poolable and component macro interaction.\n Moved PoolableMacro into a seprate file.\n Added support for poolable entities.\n Refactored JsonLoaderMacro."
+	"releasenote": "Moved Wrapper to util folder.\n Poolable and component macro interaction.\n Moved PoolableMacro into a seprate file.\n Added support for poolable entities.\n Refactored JsonLoaderMacro.\n Added singleton macro."
 }
